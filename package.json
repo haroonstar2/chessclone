@@ -1,0 +1,8 @@
+{
+  "name": "chessclone-monorepo",
+  "private": true,
+  "workspaces": [
+    "app/*",
+    "packages/*"
+  ]
+}
