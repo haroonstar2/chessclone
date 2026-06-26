@@ -3,6 +3,8 @@
 /node_modules
 /build
 
+node_modules
+
 # Logs
 logs
 *.log
@@ -12,8 +14,27 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
 # OS
 .DS_Store
+*.pem
+
 
 # Tests
 /coverage
@@ -41,6 +62,14 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 .env.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
 
 # temp directory
 .temp
