@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  uuid           String   @id @default(uuid())
+  username       String   @unique
+  email          String   @unique
+  password_hash  String
+  current_rating Int      @default(500)
+  created_at     DateTime @default(now())
+
+  settings UserSettings?
+
+  games_as_white Game[] @relation("WhitePlayer")
+  games_as_black Game[] @relation("BlackPlayer")
+
+  sent_requests     FriendRequest[] @relation("SentFriendRequests")
+  received_requests FriendRequest[] @relation("ReceivedFriendRequests")
+}
+
+model UserSettings {
+  uuid String @id @default(uuid())
+
+  user    User   @relation(fields: [user_id], references: [uuid], onDelete: Cascade)
+  user_id String @unique
+
+  board_theme String  @default("classic")
+  piece_theme String  @default("standard")
+  sound       Boolean @default(true)
+  auto_queen  Boolean @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
+model Game {
+  uuid String @id @default(uuid())
+
+  white_player    User   @relation("WhitePlayer", fields: [white_player_id], references: [uuid])
+  white_player_id String
+
+  black_player    User   @relation("BlackPlayer", fields: [black_player_id], references: [uuid])
+  black_player_id String
+
+  status     GameStatus  @default(PENDING)
+  result     GameResult?
+  pgn        String?
+  created_at DateTime    @default(now())
+}
+
+model FriendRequest {
+  uuid String @id @default(uuid())
+
+  requester    User   @relation("SentFriendRequests", fields: [requester_id], references: [uuid])
+  requester_id String
+
+  addressee    User   @relation("ReceivedFriendRequests", fields: [addressee_id], references: [uuid])
+  addressee_id String
+
+  status     FriendRequestStatus @default(PENDING)
+  created_at DateTime            @default(now())
+
+  @@unique([requester_id, addressee_id])
+}
+
+enum GameStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum GameResult {
+  WHITE_WINS
+  BLACK_WINS
+  DRAW
+}

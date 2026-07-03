@@ -2,7 +2,15 @@
   "name": "chessclone-monorepo",
   "private": true,
   "workspaces": [
-    "app/*",
+    "apps/*",
     "packages/*"
-  ]
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w web-client",
+    "dev:api": "npm run start:dev -w core-api",
+    "build": "npm run build --workspaces"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
 }

@@ -30,6 +30,13 @@ lerna-debug.log*
 # next.js
 /.next/
 /out/
+constants*
+
+# prisma
+apps/core-api/generated/
+apps/core-api/dist/
+apps/core-api/generated/prisma/
+migrations
 
 # OS
 .DS_Store
@@ -83,3 +90,5 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+/generated/prisma
