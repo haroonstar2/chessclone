@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport, Transporter } from 'nodemailer';
 
@@ -24,15 +24,21 @@ export class EmailService {
   ): Promise<void> {
     const url = `${this.configService.get<string>('EMAIL_RESET_PASSWORD_URL')}?token=${token}`;
 
-    return this.nodemailerTransport.sendMail({
-      // from: this.configService.get<string>('EMAIL_FROM'),
-      from: 'from@example.com',
-      to: email,
-      subject: 'Reset your password',
-      html: `
-            <p>You requested a password reset.</p>
-            <p><a href="${url}">Click here to reset your password</a></p>
-      `,
-    });
+    try {
+      await this.nodemailerTransport.sendMail({
+        // from: this.configService.get<string>('EMAIL_FROM'),
+        from: 'from@example.com',
+        to: email,
+        subject: 'Reset your password',
+        html: `
+              <p>You requested a password reset.</p>
+              <p><a href="${url}">Click here to reset your password</a></p>
+        `,
+      });
+
+      return;
+    } catch {
+      throw new UnauthorizedException('Invalid Email Information');
+    }
   }
 }

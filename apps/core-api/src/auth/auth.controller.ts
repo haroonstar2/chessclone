@@ -43,7 +43,7 @@ export class AuthController {
       signInDto.password,
     );
 
-    res.cookie('access_token', token, {
+    res.cookie('access_token', token.accessToken, {
       httpOnly: true,
       secure: this.configService.get('NODE_ENV') === 'production',
       sameSite: 'lax',

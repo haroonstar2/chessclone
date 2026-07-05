@@ -49,13 +49,13 @@ export class AuthService {
     const user = await this.usersService.findByUsername(username);
 
     if (!user) {
-      throw new UnauthorizedException('1 Username or password is incorrect');
+      throw new UnauthorizedException('Username or password is incorrect');
     }
 
     const passwordMatches = await bcrypt.compare(pass, user.password_hash);
 
     if (!passwordMatches) {
-      throw new UnauthorizedException('2 Username or password is incorrect');
+      throw new UnauthorizedException('Username or password is incorrect');
     }
 
     return this.issueAccessToken(user.uuid);
@@ -75,7 +75,7 @@ export class AuthService {
     const user = await this.usersService.findByEmail(email);
 
     if (!user) {
-      return { message: '1 If that email exists, a reset link has been sent.' };
+      return { message: 'If that email exists, a reset link has been sent.' };
     }
 
     const token = await this.jwtService.signAsync(
@@ -86,9 +86,13 @@ export class AuthService {
       },
     );
 
-    await this.emailService.sendResetPasswordLink(email, token);
+    try {
+      await this.emailService.sendResetPasswordLink(email, token);
+    } catch {
+      throw new UnauthorizedException('Invalid Email Information');
+    }
 
-    return { message: '1 If that email exists, a reset link has been sent.' };
+    return { message: 'If that email exists, a reset link has been sent.' };
   }
 
   async resetPassword(token: string, newPassword: string) {
