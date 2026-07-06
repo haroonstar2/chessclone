@@ -1,0 +1,27 @@
+name: Game Server CI Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/game-server/**"
+
+jobs:
+  build-go:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/game-server
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.26.4"
+
+      - name: Build Go project
+        run: go build -v ./...

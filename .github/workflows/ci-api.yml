@@ -1,15 +1,47 @@
-name: CI Pipeline
+name: API CI Pipeline
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "apps/core-api/**"
+      - "package.json"
+      - "package-lock.json"
 
 jobs:
   build-and-test-ts:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpassword
+      POSTGRES_DB: testdb
+      DATABASE_URL: postgresql://testuser:testpassword@127.0.0.1:5432/testdb?schema=public
 
     steps:
       - name: Checkout repository
@@ -22,13 +54,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Start Postgres and Redis Docker containers
-        run: docker compose up -d
-        env:
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
 
       - name: Generate Prisma client
         run: npm run prisma:generate -w core-api
@@ -50,22 +75,3 @@ jobs:
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           EMAIL_RESET_PASSWORD_URL: ${{ secrets.EMAIL_RESET_PASSWORD_URL }}
           NODE_ENV: ${{ secrets.NODE_ENV }}
-
-  build-go:
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: apps/game-server
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: "1.26.4"
-
-      - name: Build Go project
-        run: go build -v ./...
