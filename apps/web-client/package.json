@@ -28,6 +28,7 @@
     "eslint-config-next": "16.2.9",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
+    "resize-observer-polyfill": "^1.5.1",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5"

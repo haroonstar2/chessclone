@@ -7,10 +7,10 @@ import { Chessboard } from "react-chessboard";
 export default function PracticePage() {
   const [game, setGame] = useState(new Chess());
 
-  function onDrop(sourceSquare: string, targetSquare: string | null, piece: string) {
+  function onDrop({ sourceSquare, targetSquare, piece }: { sourceSquare: string, targetSquare: string | null, piece: { pieceType: string } }) {
     if (!targetSquare) return false;
     try {
-      const promotionChar = piece && piece[1] ? piece[1].toLowerCase() : "q";
+      const promotionChar = piece && piece.pieceType && piece.pieceType[1] ? piece.pieceType[1].toLowerCase() : "q";
       const move = game.move({
         from: sourceSquare,
         to: targetSquare,
@@ -18,7 +18,11 @@ export default function PracticePage() {
       });
 
       if (move === null) return false;
-      setGame(new Chess(game.fen()));
+
+      // We must copy the history to preserve the move list for rules like three-fold repetition
+      const newGame = new Chess();
+      newGame.loadPgn(game.pgn());
+      setGame(newGame);
       return true;
     } catch {
       return false;
@@ -34,7 +38,7 @@ export default function PracticePage() {
             <Chessboard
               options={{
                 position: game.fen(),
-                onPieceDrop: ({ sourceSquare, targetSquare, piece }) => onDrop(sourceSquare, targetSquare, piece.pieceType),
+                onPieceDrop: ({ sourceSquare, targetSquare, piece }) => onDrop({ sourceSquare, targetSquare, piece }),
                 boardStyle: {
                   borderRadius: "4px",
                   boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
