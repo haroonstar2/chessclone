@@ -5,4 +5,3 @@ export async function settings_test(): Promise<any> {
     method: "GET",
   });
 }
-

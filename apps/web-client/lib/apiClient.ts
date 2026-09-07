@@ -1,11 +1,11 @@
 const BASE_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:3000/';
 
 export async function apiClient<T>(
-  endpoint: string, 
+  endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
-  
+
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -13,7 +13,7 @@ export async function apiClient<T>(
       ...options.headers,
     },
     // Ensures cookies are sent to the NestJS backend
-    credentials: 'include', 
+    credentials: 'include',
   });
 
   if (!response.ok) {
