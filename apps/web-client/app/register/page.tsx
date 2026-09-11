@@ -2,26 +2,57 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import { register } from "@/lib/api/auth";
 
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage("");
-    // Placeholder submission
-    console.log("Register submitted");
-    setTimeout(() => {
+
+    const formData = new FormData(e.target as HTMLFormElement);
+    const username = formData.get("username") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+
+    console.log("Form Data:", { username, email, password, confirmPassword });
+
+    if (password !== confirmPassword) {
+      setErrorMessage("Passwords do not match.");
       setIsLoading(false);
-    }, 1000);
+      return;
+    }
+
+    register(email, username, password)
+      .then((response) => {
+        // Handle successful registration
+        console.log("Registration successful:", response);
+        router.push("/dashboard"); // Redirect to dashboard on successful registration
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        // Handle registration error
+        console.error("Registration error:", error);
+        setErrorMessage(
+          error.message || "An error occurred during registration.",
+        );
+        setIsLoading(false);
+      });
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow p-6">
-        <h1 className="text-2xl font-semibold mb-6 text-center">Create an Account</h1>
+        <h1 className="text-2xl font-semibold mb-6 text-center">
+          Create an Account
+        </h1>
 
         {errorMessage && (
           <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded text-sm">
@@ -31,11 +62,15 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="username">
+            <label
+              className="block text-sm font-medium mb-1"
+              htmlFor="username"
+            >
               Username
             </label>
             <input
               id="username"
+              name="username"
               type="text"
               required
               className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -49,30 +84,39 @@ export default function RegisterPage() {
             <input
               id="email"
               type="email"
+              name="email"
               required
               className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="you@example.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="password">
+            <label
+              className="block text-sm font-medium mb-1"
+              htmlFor="password"
+            >
               Password
             </label>
             <input
               id="password"
               type="password"
+              name="password"
               required
               className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="••••••••"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="confirmPassword">
+            <label
+              className="block text-sm font-medium mb-1"
+              htmlFor="confirmPassword"
+            >
               Confirm Password
             </label>
             <input
               id="confirmPassword"
               type="password"
+              name="confirmPassword"
               required
               className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="••••••••"

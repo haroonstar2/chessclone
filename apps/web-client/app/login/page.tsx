@@ -2,20 +2,38 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import { login } from "@/lib/api/auth";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const router = useRouter();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage("");
-    // Placeholder submission
-    console.log("Login submitted");
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+
+    const formData = new FormData(e.target as HTMLFormElement);
+    const identifier = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    login(identifier, password)
+      .then((response) => {
+        // Handle successful login
+        console.log("Login successful:", response);
+        setIsLoading(false);
+        router.push("/dashboard"); // Redirect to dashboard on successful login
+      })
+      .catch((error) => {
+        // Handle login error
+        console.error("Login error:", error);
+        setErrorMessage(error.message || "An error occurred during login.");
+        setIsLoading(false);
+      });
   };
 
   return (
@@ -37,18 +55,23 @@ export default function LoginPage() {
             <input
               id="email"
               type="text"
+              name="email"
               required
               className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="you@example.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="password">
+            <label
+              className="block text-sm font-medium mb-1"
+              htmlFor="password"
+            >
               Password
             </label>
             <input
               id="password"
               type="password"
+              name="password"
               required
               className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="••••••••"

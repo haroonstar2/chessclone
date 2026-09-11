@@ -38,7 +38,6 @@ export class AuthController {
     @Body() signInDto: SignInDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-
     const token = await this.authService.signIn(
       signInDto.identifier,
       signInDto.password,
