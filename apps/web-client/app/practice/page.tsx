@@ -223,9 +223,11 @@ export default function PracticePage() {
 
   // calculate the left position of the promotion square
   const squareWidth =
-    document
-      .querySelector(`[data-column="a"][data-row="1"]`)
-      ?.getBoundingClientRect()?.width ?? 0;
+    typeof document !== "undefined"
+      ? (document
+          .querySelector(`[data-column="a"][data-row="1"]`)
+          ?.getBoundingClientRect()?.width ?? 0)
+      : 0;
   const promotionSquareLeft = promotionMove?.targetSquare
     ? squareWidth *
       chessColumnToColumnIndex(
