@@ -39,7 +39,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const token = await this.authService.signIn(
-      signInDto.username,
+      signInDto.identifier,
       signInDto.password,
     );
 

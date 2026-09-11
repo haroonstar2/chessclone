@@ -102,14 +102,14 @@ describe('AuthController', () => {
 
   it('AuthService.signIn() should call  and update cookie', async () => {
     const dto = {
-      username: 'user1',
+      identifier: 'user1',
       password: '123',
     };
 
     const result = await authController.signIn(dto, responseMock as any);
 
     expect(authServiceMock.signIn).toHaveBeenCalledWith(
-      dto.username,
+      dto.identifier,
       dto.password,
     );
 
@@ -172,7 +172,7 @@ describe('AuthController', () => {
     configServiceMock.get.mockReturnValue('production');
 
     const dto = {
-      username: 'user1',
+      identifier: 'user1',
       password: '123',
     };
 

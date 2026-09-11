@@ -9,6 +9,8 @@ import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../email/email.service.js';
 import { ConfigService } from '@nestjs/config';
 
+import { isEmail } from 'class-validator';
+
 import { RegisterDto } from './dto/register-user.dto.js';
 import * as bcrypt from 'bcrypt';
 
@@ -43,10 +45,29 @@ export class AuthService {
   }
 
   async signIn(
-    username: string,
+    identifier: string,
     pass: string,
   ): Promise<{ accessToken: string }> {
-    const user = await this.usersService.findByUsername(username);
+
+    if (isEmail(identifier)) {
+      const user = await this.usersService.findByEmail(identifier);
+
+      if (!user) {
+        throw new UnauthorizedException('Email or password is incorrect');
+      }
+
+      const passwordMatches = await bcrypt.compare(pass, user.password_hash);
+
+      if (!passwordMatches) {
+        throw new UnauthorizedException('Email or password is incorrect');
+      }
+
+      return this.issueAccessToken(user.uuid);
+    }
+
+    // If not an email, treat as username
+
+    const user = await this.usersService.findByUsername(identifier);
 
     if (!user) {
       throw new UnauthorizedException('Username or password is incorrect');
