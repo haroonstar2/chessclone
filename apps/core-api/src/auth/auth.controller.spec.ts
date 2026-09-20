@@ -59,6 +59,10 @@ describe('AuthController', () => {
       .mockResolvedValue({
         message: 'Password reset successfully',
       }),
+
+    createTicket: jest
+      .fn<(uuid: string) => Promise<string>>()
+      .mockResolvedValue('mock-ticket'),
   };
 
   // Define the testing module
@@ -100,7 +104,7 @@ describe('AuthController', () => {
     expect(authServiceMock.register).toHaveBeenCalledWith(dto);
   });
 
-  it('AuthService.signIn() should call  and update cookie', async () => {
+  it('AuthService.signIn() should call and update cookie', async () => {
     const dto = {
       identifier: 'user1',
       password: '123',
@@ -166,6 +170,17 @@ describe('AuthController', () => {
     expect(result).toEqual({
       message: 'Password reset successfully',
     });
+  });
+
+  it('AuthService.createTicket() should receive the authenticated user UUID', async () => {
+    const request = {
+      user: { sub: 'user-123' },
+    };
+
+    const result = await authController.getTicket(request as any);
+
+    expect(authServiceMock.createTicket).toHaveBeenCalledWith('user-123');
+    expect(result).toEqual({ ticket: 'mock-ticket' });
   });
 
   it('should set secure cookie in production', async () => {

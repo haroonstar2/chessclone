@@ -4,10 +4,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 
-import { UsersService } from '../users/users.service.js';
 import { JwtService } from '@nestjs/jwt';
-import { EmailService } from '../email/email.service.js';
 import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../users/users.service.js';
+import { EmailService } from '../email/email.service.js';
+import { RedisService } from '../redis/redis.service.js';
 
 import { isEmail } from 'class-validator';
 
@@ -21,6 +22,7 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -48,7 +50,6 @@ export class AuthService {
     identifier: string,
     pass: string,
   ): Promise<{ accessToken: string }> {
-
     if (isEmail(identifier)) {
       const user = await this.usersService.findByEmail(identifier);
 
@@ -80,6 +81,20 @@ export class AuthService {
     }
 
     return this.issueAccessToken(user.uuid);
+  }
+
+  async createTicket(uuid: string): Promise<string> {
+    const payload = { sub: uuid };
+
+    const ticket = await this.jwtService.signAsync(payload, {
+      secret: this.configService.getOrThrow('JWT_RESET_SECRET'),
+      expiresIn: '15m',
+    });
+
+    // Store in Redis with a 30-second TTL
+    await this.redisService.getClient().setex(`ticket:${uuid}`, 30, ticket);
+
+    return ticket;
   }
 
   private async issueAccessToken(
