@@ -273,7 +273,7 @@ describe('AuthService', () => {
     });
   });
 
-  it('AuthService.createTicket() should store the ticket under the user UUID', async () => {
+  it('AuthService.createTicket() should store the user UUID under the ticket', async () => {
     const result = await authService.createTicket('user-123');
 
     expect(jwtServiceMock.signAsync).toHaveBeenCalledWith(
@@ -284,9 +284,9 @@ describe('AuthService', () => {
       }),
     );
     expect(redisClientMock.setex).toHaveBeenCalledWith(
-      'ticket:user-123',
-      30,
       'mock-access-token',
+      30,
+      'user-123',
     );
     expect(result).toBe('mock-access-token');
   });

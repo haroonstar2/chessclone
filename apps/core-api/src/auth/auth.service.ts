@@ -91,8 +91,8 @@ export class AuthService {
       expiresIn: '15m',
     });
 
-    // Store in Redis with a 30-second TTL
-    await this.redisService.getClient().setex(`ticket:${uuid}`, 30, ticket);
+    // Store the ticket as the key so the game server can look it up directly.
+    await this.redisService.getClient().setex(ticket, 30, uuid);
 
     return ticket;
   }
