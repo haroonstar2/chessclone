@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
 import { EmailModule } from './email/email.module.js';
 import { ConfigModule } from '@nestjs/config';
+import { RedisModule } from './redis/redis.module.js';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { ConfigModule } from '@nestjs/config';
     AuthModule,
     UsersModule,
     EmailModule,
+    RedisModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
