@@ -3,11 +3,17 @@ package ws
 import (
 	"testing"
 	"time"
+
+	"github.com/haroonstar2/chessclone/apps/game-server/internal/game"
 )
+
+func newTestHub() *Hub {
+	return NewHub(game.NewManager())
+}
 
 func TestClientRegistration(t *testing.T) {
 	// Create a new Hub
-	hub := NewHub()
+	hub := newTestHub()
 	go hub.Run()
 
 	client := &Client{
@@ -18,7 +24,7 @@ func TestClientRegistration(t *testing.T) {
 	}
 
 	// Register the client with the Hub
-	hub.register <- client	
+	hub.register <- client
 
 	// Allow some time for the hub to process the registration
 	time.Sleep(100 * time.Millisecond)

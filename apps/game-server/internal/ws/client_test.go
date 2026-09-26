@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -46,13 +47,15 @@ func setupTestClient(t *testing.T) (*Client, *websocket.Conn, func()) {
 	}
 
 	// Create the Client struct under test
-	hub := NewHub()
+	hub := newTestHub()
 	client := &Client{
 		hub:      hub,
 		conn:     serverConn,
 		send:     make(chan []byte, 256),
 		UserUUID: "test-user",
 	}
+	go hub.Run()
+	hub.register <- client
 
 	cleanup := func() {
 		clientConn.Close()
@@ -95,25 +98,32 @@ func TestClientReadPump(t *testing.T) {
 	// Start the ReadPump in a separate goroutine
 	go client.ReadPump()
 
-	// Send a test message from the client connection
-	testMessage := []byte("Hello from client!")
-	err := clientConn.WriteMessage(websocket.TextMessage, testMessage)
+	// Send a valid JOIN_GAME message. ReadPump now delegates parsed messages
+	// to the hub instead of broadcasting raw WebSocket payloads.
+	testMessage := map[string]any{
+		"type": "JOIN_GAME",
+		"payload": map[string]string{
+			"gameId": "room-123",
+		},
+	}
+	encodedMessage, err := json.Marshal(testMessage)
+	if err != nil {
+		t.Fatalf("Failed to encode test message: %v", err)
+	}
+	err = clientConn.WriteMessage(websocket.TextMessage, encodedMessage)
 	if err != nil {
 		t.Fatalf("Failed to write message: %v", err)
 	}
 
-	// Allow some time for the ReadPump to process the message
-	time.Sleep(100 * time.Millisecond)
-
-	// Check if the message was broadcasted to the hub
-	select {
-	case msg := <-client.hub.broadcast:
-		if string(msg) != string(testMessage) {
-			t.Errorf("Expected broadcast message %s, but got %s", testMessage, msg)
+	deadline := time.Now().Add(1 * time.Second)
+	for time.Now().Before(deadline) {
+		room, roomErr := client.hub.gameManager.GetRoom("room-123")
+		if roomErr == nil && room != nil {
+			return
 		}
-	case <-time.After(1 * time.Second):
-		t.Error("Timeout waiting for broadcast message")
+		time.Sleep(10 * time.Millisecond)
 	}
+	t.Fatal("Timeout waiting for client to join room")
 }
 
 func TestClientReadPumpClose(t *testing.T) {
@@ -130,7 +140,7 @@ func TestClientReadPumpClose(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Check if the client was unregistered from the hub
-	if _, ok := client.hub.clients[client]; ok {
+	if client.hub.HasClient(client) {
 		t.Error("Client was not unregistered from the hub after connection close")
 	}
 }
@@ -171,7 +181,7 @@ func TestClientReadPumpUnexpectedClose(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Check if the client was unregistered from the hub
-	if _, ok := client.hub.clients[client]; ok {
+	if client.hub.HasClient(client) {
 		t.Error("Client was not unregistered from the hub after unexpected connection close")
 	}
 }

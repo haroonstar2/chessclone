@@ -65,88 +65,88 @@ func TestHandler_MissingTicket(t *testing.T) {
 }
 
 func TestHandler_InvalidTicket_KeyNotFound(t *testing.T) {
-    // 1. Tell your mock to pretend the key does NOT exist
+
     mockRedis := &RedisClientMock{
-        getDel: func(ctx context.Context, key string) *redis.StringCmd {
-            return redis.NewStringResult("", redis.Nil)
-        },
-    }
+		getDel: func(ctx context.Context, key string) *redis.StringCmd {
+			return redis.NewStringResult("", redis.Nil)
+		},
+	}
 
-    // Hub is nil because code exits before using it
-    handler := NewHandler(mockRedis, nil)
+	// Hub is nil because code exits before using it
+	handler := NewHandler(mockRedis, nil)
 
-    req := httptest.NewRequest(http.MethodGet, "/ws?ticket=bad_ticket", nil)
-    rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ws?ticket=bad_ticket", nil)
+	rr := httptest.NewRecorder()
 
-    // 2. Run the handler
-    handler.ServeHTTP(rr, req)
+	// Run the handler
+	handler.ServeHTTP(rr, req)
 
-    // 3. Verify it was rejected with 401 Unauthorized
-    if rr.Code != http.StatusUnauthorized {
-        t.Fatalf("expected status 401 Unauthorized, got %d", rr.Code)
-    }
+	// Verify it was rejected with 401 Unauthorized
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401 Unauthorized, got %d", rr.Code)
+	}
 }
 func TestHandler_ValidTicket(t *testing.T) {
-    // Initialize real Hub and run it in background
-    hub := NewHub()
-    go hub.Run()
+	// Initialize real Hub and run it in background
+	hub := newTestHub()
+	go hub.Run()
 
-    // Mock Redis that returns a user UUID for "valid_ticket"
-    mockRedis := &RedisClientMock{
-        getDel: func(ctx context.Context, key string) *redis.StringCmd {
-            return redis.NewStringResult("user-123", nil)
-        },
-    }
+	// Mock Redis that returns a user UUID for "valid_ticket"
+	mockRedis := &RedisClientMock{
+		getDel: func(ctx context.Context, key string) *redis.StringCmd {
+			return redis.NewStringResult("user-123", nil)
+		},
+	}
 
-    handler := NewHandler(mockRedis, hub)
+	handler := NewHandler(mockRedis, hub)
 
-    server := httptest.NewServer(handler)
-    defer server.Close()
+	server := httptest.NewServer(handler)
+	defer server.Close()
 
-    // Convert http:// to ws://
-    wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?ticket=valid_ticket"
+	// Convert http:// to ws://
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?ticket=valid_ticket"
 
-    // Query the WebSocket endpoint
-    ws, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
-    if err != nil {
-        t.Fatalf("Failed to establish WebSocket connection: %v", err)
-    }
-    defer ws.Close()
+	// Query the WebSocket endpoint
+	ws, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("Failed to establish WebSocket connection: %v", err)
+	}
+	defer ws.Close()
 
-    // Assert handshake status code was 101 Switching Protocols
-    if resp.StatusCode != http.StatusSwitchingProtocols {
-        t.Fatalf("Expected status 101 Switching Protocols, got %d", resp.StatusCode)
-    }
+	// Assert handshake status code was 101 Switching Protocols
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		t.Fatalf("Expected status 101 Switching Protocols, got %d", resp.StatusCode)
+	}
 
 	// Explicitly send close message and close connection
-    err = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-    if err != nil {
-        t.Logf("Error writing close message: %v", err)
-    }
-    ws.Close()
+	err = ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	if err != nil {
+		t.Logf("Error writing close message: %v", err)
+	}
+	ws.Close()
 
 }
 
 func TestHandler_ValidTicket_InvalidUpgrade(t *testing.T) {
-    mockRedis := &RedisClientMock{
-        getDel: func(ctx context.Context, key string) *redis.StringCmd {
-            return redis.NewStringResult("user-123", nil)
-        },
-    }
+	mockRedis := &RedisClientMock{
+		getDel: func(ctx context.Context, key string) *redis.StringCmd {
+			return redis.NewStringResult("user-123", nil)
+		},
+	}
 
-    handler := NewHandler(mockRedis, nil)
-    server := httptest.NewServer(handler)
-    defer server.Close()
+	handler := NewHandler(mockRedis, nil)
+	server := httptest.NewServer(handler)
+	defer server.Close()
 
-    // Issue a raw HTTP GET without proper WebSocket handshake headers
-    resp, err := http.Get(server.URL + "/ws?ticket=valid_ticket")
-    if err != nil {
-        t.Fatalf("Failed to send request: %v", err)
-    }
-    defer resp.Body.Close()
+	// Issue a raw HTTP GET without proper WebSocket handshake headers
+	resp, err := http.Get(server.URL + "/ws?ticket=valid_ticket")
+	if err != nil {
+		t.Fatalf("Failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
 
-    // Upgrader rejects missing/bad handshake with 400 Bad Request
-    if resp.StatusCode != http.StatusBadRequest {
-        t.Fatalf("expected status 400 Bad Request, got %d", resp.StatusCode)
-    }
+	// Upgrader rejects missing/bad handshake with 400 Bad Request
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d", resp.StatusCode)
+	}
 }
