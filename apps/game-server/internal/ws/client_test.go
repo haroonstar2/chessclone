@@ -14,16 +14,21 @@ import (
 func setupTestClient(t *testing.T) (*Client, *websocket.Conn, func()) {
 	t.Helper()
 
-	var serverConn *websocket.Conn
-	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	// Channel to prevent race conditions when upgrading the connection
+	connChan := make(chan *websocket.Conn, 1)
+
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool { return true },
+	}
 
 	// Upgrade handler
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var err error
-		serverConn, err = upgrader.Upgrade(w, r, nil)
+		// var err error
+		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			t.Fatalf("Failed upgrade to websocket: %v", err)
 		}
+		connChan <- conn
 	}))
 
 	// Dial the test server
@@ -31,6 +36,13 @@ func setupTestClient(t *testing.T) (*Client, *websocket.Conn, func()) {
 	clientConn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatalf("Failed to dial: %v", err)
+	}
+
+	var serverConn *websocket.Conn
+	select {
+	case serverConn = <-connChan:
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timeout waiting for server connection")
 	}
 
 	// Create the Client struct under test

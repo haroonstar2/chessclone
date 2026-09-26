@@ -24,7 +24,7 @@ func TestClientRegistration(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Check if the client is registered
-	if _, ok := hub.clients[client]; !ok {
+	if !hub.HasClient(client) {
 		t.Errorf("Client was not registered in the Hub")
 	}
 
@@ -35,7 +35,7 @@ func TestClientRegistration(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Check if the client is unregistered
-	if _, ok := hub.clients[client]; ok {
+	if hub.HasClient(client) {
 		t.Errorf("Client was not unregistered from the Hub")
 	}
 }
