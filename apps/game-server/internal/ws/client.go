@@ -4,10 +4,12 @@ package ws
 // Reads and Writes messages to the WebSocket connection.
 
 import (
+	"encoding/json"
 	"log"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/haroonstar2/chessclone/apps/game-server/internal/game"
 )
 
 const (
@@ -22,6 +24,23 @@ type Client struct {
 	conn     *websocket.Conn
 	send     chan []byte
 	UserUUID string
+}
+
+func (c *Client) ID() game.PlayerID {
+	return game.PlayerID(c.UserUUID)
+}
+
+type IncomingMessage struct {
+	Type    string      `json:"type"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+func (c *Client) Send(data []byte) {
+	select {
+	case c.send <- data:
+	default:
+		log.Printf("Send channel full for user %s, dropping message", c.UserUUID)
+	}
 }
 
 // ReadPump listens for messages from this specific user's browser.
@@ -50,8 +69,14 @@ func (c *Client) ReadPump() {
 		}
 		log.Printf("Message from %s: %s", c.UserUUID, message)
 
-		// Broadcast message to the Hub
-		c.hub.broadcast <- message
+		// Unpack the message and handle it based on its type (JOIN_GAME, MOVE, etc.)
+		var incoming IncomingMessage
+		if err := json.Unmarshal(message, &incoming); err != nil {
+			log.Printf("Error unmarshaling message: %v", err)
+			continue
+		}
+
+		c.hub.handleIncomingMessage(c, incoming)
 	}
 }
 

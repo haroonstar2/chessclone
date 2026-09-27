@@ -3,11 +3,17 @@ package ws
 import (
 	"testing"
 	"time"
+
+	"github.com/haroonstar2/chessclone/apps/game-server/internal/game"
 )
+
+func newTestHub() *Hub {
+	return NewHub(game.NewManager())
+}
 
 func TestClientRegistration(t *testing.T) {
 	// Create a new Hub
-	hub := NewHub()
+	hub := newTestHub()
 	go hub.Run()
 
 	client := &Client{
@@ -18,13 +24,13 @@ func TestClientRegistration(t *testing.T) {
 	}
 
 	// Register the client with the Hub
-	hub.register <- client	
+	hub.register <- client
 
 	// Allow some time for the hub to process the registration
 	time.Sleep(100 * time.Millisecond)
 
 	// Check if the client is registered
-	if _, ok := hub.clients[client]; !ok {
+	if !hub.HasClient(client) {
 		t.Errorf("Client was not registered in the Hub")
 	}
 
@@ -35,7 +41,7 @@ func TestClientRegistration(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Check if the client is unregistered
-	if _, ok := hub.clients[client]; ok {
+	if hub.HasClient(client) {
 		t.Errorf("Client was not unregistered from the Hub")
 	}
 }
