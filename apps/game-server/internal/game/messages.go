@@ -25,7 +25,6 @@ type MovePayload struct {
 	GameID   string `json:"gameId"`
 	From     string `json:"from"`
 	To       string `json:"to"`
-	PlayerID string `json:"playerId"`
 	PromotedPiece string `json:"promotedPiece,omitempty"`
 }
 
