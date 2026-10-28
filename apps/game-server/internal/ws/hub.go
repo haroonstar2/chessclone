@@ -2,6 +2,7 @@ package ws
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"sync"
 
@@ -12,21 +13,21 @@ import (
 // It maintains a set of active connections and provides methods to add, remove, and broadcast messages to all connected clients.
 
 type Hub struct {
-	clients    map[*Client]bool
+	clients     map[*Client]bool
 	gameManager *game.Manager
-	broadcast  chan []byte
-	register   chan *Client
-	unregister chan *Client
-	mu		 sync.RWMutex
+	broadcast   chan []byte
+	register    chan *Client
+	unregister  chan *Client
+	mu          sync.RWMutex
 }
 
 func NewHub(gm *game.Manager) *Hub {
 	return &Hub{
-		clients:    make(map[*Client]bool),
+		clients:     make(map[*Client]bool),
 		gameManager: gm,
-		broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
+		broadcast:   make(chan []byte),
+		register:    make(chan *Client),
+		unregister:  make(chan *Client),
 	}
 }
 
@@ -63,7 +64,8 @@ func (h *Hub) Run() {
 
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
-				close(client.send)
+				h.gameManager.RemovePlayer(client)
+				client.closeSend()
 			}
 
 			h.mu.Unlock()
@@ -72,11 +74,20 @@ func (h *Hub) Run() {
 			// Send the message to all connected clients. If a client's send channel is blocked, close it and remove the client from the hub.
 			h.mu.Lock()
 			for client := range h.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
-					delete(h.clients, client)					
+				client.sendMu.Lock()
+				full := false
+				if !client.closed {
+					select {
+					case client.send <- message:
+					default:
+						full = true
+					}
+				}
+				client.sendMu.Unlock()
+				if full {
+					h.gameManager.RemovePlayer(client)
+					client.closeSend()
+					delete(h.clients, client)
 				}
 			}
 			h.mu.Unlock()
@@ -88,6 +99,9 @@ func (h *Hub) handleIncomingMessage(client *Client, message IncomingMessage) {
 
 	switch message.Type {
 	case "JOIN_GAME":
+		if client.room != nil {
+			return
+		}
 		var payload game.JoinGamePayload
 		if err := json.Unmarshal(message.Payload, &payload); err != nil {
 
@@ -99,31 +113,45 @@ func (h *Hub) handleIncomingMessage(client *Client, message IncomingMessage) {
 
 		room, err := h.gameManager.JoinRoom(payload.GameID, client)
 		if err != nil {
+			client.sendError(err)
 			log.Printf("Error joining room: %v", err)
 			return
 		}
 
+		client.room = room
 		log.Printf("User %s joined room %s", client.UserUUID, room.ID)
 
 	case "MOVE":
 		var payload game.MovePayload
 		if err := json.Unmarshal(message.Payload, &payload); err != nil {
 
+			if client.room != nil {
+				client.room.SendError(client, err)
+			} else {
+				client.sendError(err)
+			}
 			log.Printf("Error unmarshaling MOVE payload: %v", err)
 			return
 		}
 
 		log.Printf("User %s making move from %s to %s in game %s", client.UserUUID, payload.From, payload.To, payload.GameID)
 
-		room, err := h.gameManager.GetRoom(payload.GameID)
-		if err != nil {
-			log.Printf("Error getting room: %v", err)
+		room := client.room
+		if room == nil {
+			client.sendError(errors.New("join a game before moving"))
 			return
 		}
-
-		if err := room.HandleMove(client, payload.From, payload.To, payload.PromotedPiece); err != nil {
-			log.Printf("Error handling move: %v", err)
+		active, err := h.gameManager.GetRoom(room.ID)
+		if err != nil || active != room {
+			room.SendError(client, errors.New("game has expired"))
 			return
+		}
+		if payload.GameID != "" && payload.GameID != room.ID {
+			room.SendError(client, errors.New("wrong game"))
+			return
+		}
+		if err := room.HandleMove(client, payload.From, payload.To, payload.Promotion); err != nil {
+			room.SendError(client, err)
 		}
 
 	default:

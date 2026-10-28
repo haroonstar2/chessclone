@@ -2,6 +2,7 @@ package game
 
 import (
 	"testing"
+	"time"
 )
 
 func TestManager(t *testing.T) {
@@ -14,7 +15,6 @@ func TestManager(t *testing.T) {
 func TestManager_CreateAndGetRoom(t *testing.T) {
 	gm := NewManager()
 	roomID := "test-room"
-
 
 	retirievedRoom, err := gm.GetRoom(roomID)
 	if err == nil || retirievedRoom != nil {
@@ -89,5 +89,54 @@ func TestManager_JoinRoom(t *testing.T) {
 	// Verify the second player was added to the room
 	if room.WhitePlayer != player && room.BlackPlayer != player2 {
 		t.Fatal("Second player was not added to the room")
+	}
+}
+
+func TestReconnectGracePeriod(t *testing.T) {
+	{
+		m := NewManager()
+		m.gracePeriod = 50 * time.Millisecond
+		w := &MockPlayer{id: "w"}
+		b := &MockPlayer{id: "b"}
+		r, _ := m.JoinRoom("timer", w)
+		_, _ = m.JoinRoom("timer", b)
+		m.RemovePlayer(b)
+		time.Sleep(10 * time.Millisecond)
+		replacement := &MockPlayer{id: "b"}
+		if _, err := m.JoinRoom("timer", replacement); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(60 * time.Millisecond)
+		if _, err := m.GetRoom("timer"); err != nil {
+			t.Fatal("reconnect failed to cancel expiry")
+		}
+		m.RemovePlayer(replacement)
+		time.Sleep(100 * time.Millisecond)
+		if _, err := m.GetRoom("timer"); err == nil {
+			t.Fatal("game did not expire")
+		}
+		if r.HandleMove(w, "e2", "e4", "") == nil {
+			t.Fatal("expired game accepted move")
+		}
+	}
+}
+
+func TestStaleConnectionCannotDisconnectReplacement(t *testing.T) {
+	m := NewManager()
+	old := &MockPlayer{id: "w"}
+	b := &MockPlayer{id: "b"}
+	r, _ := m.JoinRoom("refresh", old)
+	_, _ = m.JoinRoom("refresh", b)
+	replacement := &MockPlayer{id: "w"}
+	_, _ = m.JoinRoom("refresh", replacement)
+	m.RemovePlayer(old)
+	if r.WhitePlayer != replacement {
+		t.Fatal("stale disconnect removed replacement")
+	}
+	if r.HandleMove(old, "e2", "e4", "") == nil {
+		t.Fatal("stale connection accepted")
+	}
+	if err := r.HandleMove(replacement, "e2", "e4", ""); err != nil {
+		t.Fatal(err)
 	}
 }

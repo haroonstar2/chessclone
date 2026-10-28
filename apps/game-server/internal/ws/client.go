@@ -6,6 +6,7 @@ package ws
 import (
 	"encoding/json"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -20,6 +21,9 @@ const (
 )
 
 type Client struct {
+	room     *game.GameRoom
+	sendMu   sync.Mutex
+	closed   bool
 	hub      *Hub
 	conn     *websocket.Conn
 	send     chan []byte
@@ -31,11 +35,16 @@ func (c *Client) ID() game.PlayerID {
 }
 
 type IncomingMessage struct {
-	Type    string      `json:"type"`
+	Type    string          `json:"type"`
 	Payload json.RawMessage `json:"payload"`
 }
 
 func (c *Client) Send(data []byte) {
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	if c.closed {
+		return
+	}
 	select {
 	case c.send <- data:
 	default:
@@ -117,4 +126,16 @@ func (c *Client) WritePump() {
 			}
 		}
 	}
+}
+func (c *Client) closeSend() {
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	if !c.closed {
+		c.closed = true
+		close(c.send)
+	}
+}
+func (c *Client) sendError(err error) {
+	data, _ := json.Marshal(game.OutgoingMessage{Type: game.TypeError, Payload: map[string]string{"message": err.Error()}})
+	c.Send(data)
 }

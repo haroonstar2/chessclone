@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
@@ -66,7 +67,7 @@ func TestHandler_MissingTicket(t *testing.T) {
 
 func TestHandler_InvalidTicket_KeyNotFound(t *testing.T) {
 
-    mockRedis := &RedisClientMock{
+	mockRedis := &RedisClientMock{
 		getDel: func(ctx context.Context, key string) *redis.StringCmd {
 			return redis.NewStringResult("", redis.Nil)
 		},
@@ -149,4 +150,60 @@ func TestHandler_ValidTicket_InvalidUpgrade(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected status 400 Bad Request, got %d", resp.StatusCode)
 	}
+}
+
+func TestSocketProtocolAndRefresh(t *testing.T) {
+	hub := newTestHub()
+	go hub.Run()
+	server := httptest.NewServer(NewHandler(&RedisClientMock{getDel: func(ctx context.Context, key string) *redis.StringCmd { return redis.NewStringResult(key, nil) }}, hub))
+	defer server.Close()
+	connect := func(user, query string) *websocket.Conn {
+		t.Helper()
+		conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http")+"/ws?ticket="+user+query, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { conn.Close() })
+		return conn
+	}
+	read := func(conn *websocket.Conn, kind string) map[string]any {
+		t.Helper()
+		conn.SetReadDeadline(time.Now().Add(time.Second))
+		var msg struct {
+			Type      string
+			Payload   map[string]any
+			Timestamp string
+		}
+		if err := conn.ReadJSON(&msg); err != nil {
+			t.Fatal(err)
+		}
+		if msg.Type != kind || msg.Timestamp == "" {
+			t.Fatalf("unexpected message: %+v", msg)
+		}
+		return msg.Payload
+	}
+	white := connect("white", "&gameId=live")
+	initial := read(white, "GAME_STATE")["fen"]
+	black := connect("black", "&gameId=live")
+	read(black, "GAME_STATE")
+	read(white, "GAME_STATE")
+	black.WriteJSON(map[string]any{"type": "MOVE", "payload": map[string]string{"from": "e7", "to": "e5"}})
+	if read(black, "ERROR")["fen"] != initial {
+		t.Fatal("error missing authoritative FEN")
+	}
+	white.WriteJSON(map[string]any{"type": "MOVE", "payload": map[string]string{"from": "e2", "to": "e5"}})
+	if read(white, "ERROR")["fen"] != initial {
+		t.Fatal("invalid move changed board")
+	}
+	white.WriteJSON(map[string]any{"type": "MOVE", "payload": map[string]string{"from": "e2", "to": "e4"}, "timestamp": "2026-10-21T05:12:00Z"})
+	fen := read(white, "MOVE")["fen"]
+	read(black, "MOVE")
+	black.Close()
+	read(white, "OPPONENT_DISCONNECTED")
+	replacement := connect("black", "")
+	state := read(replacement, "GAME_STATE")
+	if state["fen"] != fen || state["playerColor"] != "black" || state["ready"] != true {
+		t.Fatalf("bad restore: %+v", state)
+	}
+	read(white, "GAME_STATE")
 }

@@ -31,13 +31,13 @@ type RedisClient interface {
 
 type ClientHandler struct {
 	redisClient RedisClient
-	hub		*Hub
+	hub         *Hub
 }
 
 func NewHandler(redisClient RedisClient, hub *Hub) *ClientHandler {
 	return &ClientHandler{
 		redisClient: redisClient,
-		hub: hub,
+		hub:         hub,
 	}
 }
 
@@ -79,13 +79,20 @@ func (h *ClientHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("WebSocket connection established for user: %s", userUUID)
 
-
 	// Create a new client and register it with the hub
 	client := &Client{
 		hub:      h.hub,
 		conn:     conn,
 		send:     make(chan []byte, 256),
 		UserUUID: userUUID,
+	}
+	if gameID := r.URL.Query().Get("gameId"); gameID != "" {
+		client.room, err = h.hub.gameManager.JoinRoom(gameID, client)
+		if err != nil {
+			client.sendError(err)
+		}
+	} else {
+		client.room, _ = h.hub.gameManager.Resume(client)
 	}
 	client.hub.register <- client
 
