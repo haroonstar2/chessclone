@@ -2,7 +2,13 @@ name: API CI Pipeline
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, development]
+    paths:
+      - "apps/core-api/**"
+      - "package.json"
+      - "package-lock.json"
+  push:
+    branches: [main, development]
     paths:
       - "apps/core-api/**"
       - "package.json"

@@ -5,11 +5,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller.js';
 import { ConfigService } from '@nestjs/config';
 import { EmailModule } from '../email/email.module.js';
+import { RedisModule } from '../redis/redis.module.js';
 
 @Module({
   imports: [
     UsersModule,
     EmailModule,
+    RedisModule,
 
     JwtModule.registerAsync({
       inject: [ConfigService],

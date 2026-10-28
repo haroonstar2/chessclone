@@ -4,10 +4,12 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Get,
+  Req,
   UseGuards,
   Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 
 import { AuthService } from './auth.service.js';
 import { AuthGuard } from './auth.guard.js';
@@ -74,5 +76,16 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return await this.authService.resetPassword(dto.token, dto.newPassword);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('ticket')
+  @HttpCode(HttpStatus.OK)
+  async getTicket(@Req() req: Request) {
+    // Makes sure TypeScript knows that req.user is defined and has a sub property
+    const userUuid = (req as Request & { user: { sub: string } }).user.sub;
+    const ticket = await this.authService.createTicket(userUuid);
+
+    return { ticket };
   }
 }

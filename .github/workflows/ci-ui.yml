@@ -2,9 +2,17 @@ name: Web Client CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "development"]
+    paths:
+      - "apps/web-client/**"
+      - "package.json"
+      - "package-lock.json"
   pull_request:
-    branches: ["main"]
+    branches: ["main", "development"]
+    paths:
+      - "apps/web-client/**"
+      - "package.json"
+      - "package-lock.json"
 
 jobs:
   test:

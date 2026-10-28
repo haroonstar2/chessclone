@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '../email/email.service.js';
 import { UsersService } from '../users/users.service.js';
+import { RedisService } from '../redis/redis.service.js';
 import * as bcrypt from 'bcrypt';
 
 type queryUserResult = {
@@ -39,6 +40,14 @@ describe('AuthService', () => {
       jest.fn<(email: string, token: string) => Promise<void>>(),
   };
 
+  const redisServiceMock = {
+    getClient: jest.fn(),
+  };
+
+  const redisClientMock = {
+    setex: jest.fn(),
+  };
+
   const usersServiceMock = {
     findByEmail: jest.fn<(email: string) => Promise<queryUserResult | null>>(),
     findByUsername:
@@ -54,6 +63,7 @@ describe('AuthService', () => {
     configServiceMock.get.mockReturnValue('test');
     configServiceMock.getOrThrow.mockReturnValue('mock-secret');
     jwtServiceMock.signAsync.mockResolvedValue('mock-access-token');
+    redisServiceMock.getClient.mockReturnValue(redisClientMock);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -62,6 +72,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: EmailService, useValue: emailServiceMock },
         { provide: UsersService, useValue: usersServiceMock },
+        { provide: RedisService, useValue: redisServiceMock },
       ],
     }).compile();
 
@@ -260,6 +271,24 @@ describe('AuthService', () => {
     expect(result).toEqual({
       message: 'If that email exists, a reset link has been sent.',
     });
+  });
+
+  it('AuthService.createTicket() should store the user UUID under the ticket', async () => {
+    const result = await authService.createTicket('user-123');
+
+    expect(jwtServiceMock.signAsync).toHaveBeenCalledWith(
+      { sub: 'user-123' },
+      expect.objectContaining({
+        secret: 'mock-secret',
+        expiresIn: '15m',
+      }),
+    );
+    expect(redisClientMock.setex).toHaveBeenCalledWith(
+      'mock-access-token',
+      30,
+      'user-123',
+    );
+    expect(result).toBe('mock-access-token');
   });
 
   it('AuthService.resetPassword() should call with correct token and newPassword', async () => {
