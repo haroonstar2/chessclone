@@ -5,7 +5,7 @@ import { Redis } from 'ioredis';
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private redisClient: Redis;
 
-  async onModuleInit() {
+  onModuleInit() {
     this.redisClient = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
       // Gets REDIS_PORT, tries to parse it as an integer, defaults to 6379 if not set or invalid

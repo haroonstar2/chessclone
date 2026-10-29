@@ -140,3 +140,24 @@ func TestStaleConnectionCannotDisconnectReplacement(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestActiveGameMetric(t *testing.T) {
+	manager := NewManager()
+	white := &MockPlayer{id: "white"}
+	black := &MockPlayer{id: "black"}
+
+	room, _ := manager.JoinRoom("metrics", white)
+	_, _ = manager.JoinRoom("metrics", black)
+
+	if manager.ActiveGames() != 1 {
+		t.Fatal("Expected one active game")
+	}
+
+	if err := room.Resign(white); err != nil {
+		t.Fatal(err)
+	}
+
+	if manager.ActiveGames() != 0 {
+		t.Fatal("Completed game must not count as active")
+	}
+}

@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   ConflictException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -17,6 +18,8 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
@@ -94,12 +97,24 @@ export class AuthService {
     // Store the ticket as the key so the game server can look it up directly.
     await this.redisService.getClient().setex(ticket, 30, uuid);
 
+    this.logger.log({
+      message: 'WebSocket ticket issued',
+      userId: uuid,
+      gameId: '',
+    });
+
     return ticket;
   }
 
   private async issueAccessToken(
     uuid: string,
   ): Promise<{ accessToken: string }> {
+    this.logger.log({
+      message: 'User authenticated',
+      userId: uuid,
+      gameId: '',
+    });
+
     const payload = { sub: uuid };
 
     return {

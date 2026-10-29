@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 
 // Save the email in local storage so that it can be pre-filled on the login page
 const AUTH_EMAIL_STORAGE_KEY = "auth-email";
@@ -20,21 +20,20 @@ export default function LoginForm({
   buttonLabel: string;
   footer: React.ReactNode;
 }) {
-  const [email, setEmail] = useState("");
+  const emailRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState("");
 
   // Pre-fill the email field with the saved email from local storage
   useEffect(() => {
     const savedEmail = window.localStorage.getItem(AUTH_EMAIL_STORAGE_KEY);
 
-    if (savedEmail) {
-      setEmail(savedEmail);
+    if (savedEmail && emailRef.current) {
+      emailRef.current.value = savedEmail;
     }
   }, []);
 
-  // Update the email state and save it to local storage whenever it changes
+  // Save the email to local storage whenever it changes
   const handleEmailChange = (value: string) => {
-    setEmail(value);
     window.localStorage.setItem(AUTH_EMAIL_STORAGE_KEY, value);
   };
 
@@ -43,7 +42,7 @@ export default function LoginForm({
       <div className="w-full max-w-md bg-white rounded-lg shadow p-6">
         <h1 className="text-2xl font-semibold mb-6 text-center">{title}</h1>
         <form
-          onSubmit={(e) => handleSubmit(e, email, password)}
+          onSubmit={(e) => handleSubmit(e, emailRef.current?.value ?? "", password)}
           className="space-y-4"
         >
           <div>
@@ -54,7 +53,7 @@ export default function LoginForm({
               id="email"
               type="email"
               required
-              value={email}
+              ref={emailRef}
               className="w-full border rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="you@example.com"
               onChange={(e) => handleEmailChange(e.target.value)}

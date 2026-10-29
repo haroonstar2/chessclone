@@ -9,7 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"fmt"
-	"log"
+	"log/slog"
 )
 
 func CreateRedisClient() (*redis.Client, error) {
@@ -19,30 +19,30 @@ func CreateRedisClient() (*redis.Client, error) {
 	// Get Redis host and port from environment variables, with default values if not set
 	host := os.Getenv("REDIS_HOST")
 	if host == "" {
-		log.Println("REDIS_HOST not set, using default 'localhost'")
+		slog.Info("REDIS_HOST not set, using default 'localhost'")
 		host = "localhost"
 	}
 
 	port := os.Getenv("REDIS_PORT")
 	if port == "" {
-		log.Println("REDIS_PORT not set, using default '6379'")
+		slog.Info("REDIS_PORT not set, using default '6379'")
 		port = "6379"
 	}
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%s", host, port),
+		Addr:     fmt.Sprintf("%s:%s", host, port),
 		Password: "", // no password set
-		DB: 0,
+		DB:       0,
 	})
 
-	log.Println("Connecting to Redis...")
+	slog.Info("Connecting to Redis...")
 	error := redisClient.Ping(ctx).Err()
 	if error != nil {
-		log.Printf("Error connecting to Redis: %v", error)
+		slog.Error("Redis connection failed", "error", error)
 		return nil, error
 	}
 
-	log.Println("Redis service is running...")
+	slog.Info("Redis service is running...")
 
 	return redisClient, nil
 

@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Chess, type Square, type PieceSymbol } from "chess.js";
+import { useState } from "react";
+import { Chess } from "chess.js";
 
 import { ChessBoardView } from "../../components/ChessBoardView";
 
 export default function PracticePage() {
-  const chessGameRef = useRef(new Chess());
-  const chessGame = chessGameRef.current;
+  const [chessGame] = useState(() => new Chess());
 
   const [chessPosition, setChessPosition] = useState<string>(chessGame.fen());
 

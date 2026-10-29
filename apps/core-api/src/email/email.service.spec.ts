@@ -88,7 +88,7 @@ describe('EmailService', () => {
         subject: 'Reset your password',
         html: expect.stringContaining(
           'https://example.com/reset-password?token=12345',
-        ),
+        ) as unknown,
       }),
     );
   });

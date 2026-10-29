@@ -26,7 +26,7 @@ describe('RedisService', () => {
     }).compile();
 
     redisService = module.get<InstanceType<typeof RedisService>>(RedisService);
-    await redisService.onModuleInit();
+    redisService.onModuleInit();
   });
 
   it('RedisService should be defined', () => {

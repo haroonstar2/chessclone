@@ -3,8 +3,9 @@ package ws
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"sync"
+	"sync/atomic"
 
 	"github.com/haroonstar2/chessclone/apps/game-server/internal/game"
 )
@@ -13,12 +14,13 @@ import (
 // It maintains a set of active connections and provides methods to add, remove, and broadcast messages to all connected clients.
 
 type Hub struct {
-	clients     map[*Client]bool
-	gameManager *game.Manager
-	broadcast   chan []byte
-	register    chan *Client
-	unregister  chan *Client
-	mu          sync.RWMutex
+	movesProcessed atomic.Uint64
+	clients        map[*Client]bool
+	gameManager    *game.Manager
+	broadcast      chan []byte
+	register       chan *Client
+	unregister     chan *Client
+	mu             sync.RWMutex
 }
 
 func NewHub(gm *game.Manager) *Hub {
@@ -105,23 +107,24 @@ func (h *Hub) handleIncomingMessage(client *Client, message IncomingMessage) {
 		var payload game.JoinGamePayload
 		if err := json.Unmarshal(message.Payload, &payload); err != nil {
 
-			log.Printf("Error unmarshaling JOIN_GAME payload: %v", err)
+			client.logger().Warn("Invalid join payload", "error", err)
 			return
 		}
 
-		log.Printf("User %s joining game %s", client.UserUUID, payload.GameID)
+		slog.Info("Joining game", "userId", client.UserUUID, "gameId", payload.GameID)
 
 		room, err := h.gameManager.JoinRoom(payload.GameID, client)
 		if err != nil {
 			client.sendError(err)
-			log.Printf("Error joining room: %v", err)
+			slog.Warn("Join failed", "userId", client.UserUUID, "gameId", payload.GameID, "error", err)
 			return
 		}
 
 		client.room = room
-		log.Printf("User %s joined room %s", client.UserUUID, room.ID)
+		client.logger().Info("Game joined")
 
 	case "MOVE":
+		defer h.movesProcessed.Add(1)
 		var payload game.MovePayload
 		if err := json.Unmarshal(message.Payload, &payload); err != nil {
 
@@ -130,11 +133,11 @@ func (h *Hub) handleIncomingMessage(client *Client, message IncomingMessage) {
 			} else {
 				client.sendError(err)
 			}
-			log.Printf("Error unmarshaling MOVE payload: %v", err)
+			client.logger().Warn("Invalid move payload", "error", err)
 			return
 		}
 
-		log.Printf("User %s making move from %s to %s in game %s", client.UserUUID, payload.From, payload.To, payload.GameID)
+		client.logger().Info("Move received", "from", payload.From, "to", payload.To)
 
 		room := client.room
 		if room == nil {
@@ -152,9 +155,38 @@ func (h *Hub) handleIncomingMessage(client *Client, message IncomingMessage) {
 		}
 		if err := room.HandleMove(client, payload.From, payload.To, payload.Promotion); err != nil {
 			room.SendError(client, err)
+			client.logger().Warn("Move rejected", "error", err)
+		} else {
+			client.logger().Info("Move accepted")
 		}
 
+	case "RESIGN", "OFFER_DRAW", "ACCEPT_DRAW":
+		room := client.room
+		if room == nil {
+			client.sendError(errors.New("join a game first"))
+			return
+		}
+		active, err := h.gameManager.GetRoom(room.ID)
+		if err != nil || active != room {
+			room.SendError(client, errors.New("game has expired"))
+			return
+		}
+		switch message.Type {
+		case "RESIGN":
+			err = room.Resign(client)
+		case "OFFER_DRAW":
+			err = room.OfferDraw(client)
+		case "ACCEPT_DRAW":
+			err = room.AcceptDraw(client)
+		}
+		if err != nil {
+			room.SendError(client, err)
+		}
 	default:
-		log.Printf("Unknown message type: %s", message.Type)
+		client.logger().Warn("Unknown WebSocket event", "eventType", message.Type)
 	}
+}
+
+func (h *Hub) MovesProcessed() uint64 {
+	return h.movesProcessed.Load()
 }

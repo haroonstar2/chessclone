@@ -53,7 +53,14 @@ describe('AuthService', () => {
     findByUsername:
       jest.fn<(username: string) => Promise<queryUserResult | null>>(),
 
-    createUser: jest.fn<(payload: any) => Promise<queryUserResult>>(),
+    createUser:
+      jest.fn<
+        (payload: {
+          email: string;
+          username: string;
+          password_hash: string;
+        }) => Promise<queryUserResult>
+      >(),
     updateUser: jest.fn(),
   };
 
@@ -113,7 +120,7 @@ describe('AuthService', () => {
     expect(usersServiceMock.createUser).toHaveBeenCalledWith({
       email: dto.email,
       username: dto.username,
-      password_hash: expect.any(String),
+      password_hash: expect.any(String) as unknown,
     });
 
     // Extract arguments to
@@ -235,8 +242,8 @@ describe('AuthService', () => {
     expect(jwtServiceMock.signAsync).toHaveBeenCalledWith(
       { sub: user.uuid },
       expect.objectContaining({
-        secret: expect.any(String),
-        expiresIn: expect.any(String),
+        secret: expect.any(String) as unknown,
+        expiresIn: expect.any(String) as unknown,
       }),
     );
 
@@ -320,7 +327,7 @@ describe('AuthService', () => {
         uuid: 'correct-uuid',
       },
       data: {
-        password_hash: expect.any(String),
+        password_hash: expect.any(String) as unknown,
       },
     });
 

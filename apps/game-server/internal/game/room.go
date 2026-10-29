@@ -21,14 +21,16 @@ type Sender interface {
 }
 
 type GameRoom struct {
-	ID          string
-	WhitePlayer Sender
-	WhiteID     string
-	BlackPlayer Sender
-	BlackID     string
-	Game        *chess.Game
-	mu          sync.Mutex
-	ended       bool
+	ID            string
+	WhitePlayer   Sender
+	WhiteID       string
+	BlackPlayer   Sender
+	BlackID       string
+	Game          *chess.Game
+	mu            sync.Mutex
+	ended         bool
+	onCompleted   func(CompletionEvent)
+	drawOfferedBy PlayerID
 }
 
 func NewGameRoom(id string) *GameRoom {
@@ -65,13 +67,13 @@ func (r *GameRoom) AddPlayer(client Sender) error {
 		}
 		data, _ := json.Marshal(
 			OutgoingMessage{
-				Type: TypeGameState, 
+				Type: TypeGameState,
 				Payload: map[string]interface{}{
-					"playerColor": entry.color, 
-					"fen": r.Game.Position().String(), 
-					"turn": r.Game.Position().Turn().String(), 
-					"ready": r.WhitePlayer != nil && r.BlackPlayer != nil, 
-					"moves": r.movesLocked(),
+					"playerColor": entry.color,
+					"fen":         r.Game.Position().String(),
+					"turn":        r.Game.Position().Turn().String(),
+					"ready":       !r.ended && r.WhitePlayer != nil && r.BlackPlayer != nil,
+					"moves":       r.movesLocked(),
 				},
 			})
 		entry.player.Send(data)
@@ -133,6 +135,8 @@ func (r *GameRoom) HandleMove(client Sender, from, to, promo string) error {
 		return err
 	}
 
+	r.drawOfferedBy = ""
+
 	// Broadcast updated position to both players
 	r.BroadcastLocked(OutgoingMessage{
 		Type: TypeMove,
@@ -147,6 +151,7 @@ func (r *GameRoom) HandleMove(client Sender, from, to, promo string) error {
 		},
 	})
 
+	r.completeLocked()
 	return nil
 }
 
@@ -162,12 +167,12 @@ func (r *GameRoom) RemovePlayer(client Sender) bool {
 		return false
 	}
 	r.BroadcastLocked(OutgoingMessage{
-			Type: "OPPONENT_DISCONNECTED", 
-			Payload: map[string]string{
-				"message": "Opponent disconnected", 
-				"fen": r.Game.Position().String(),
-			},
+		Type: "OPPONENT_DISCONNECTED",
+		Payload: map[string]string{
+			"message": "Opponent disconnected",
+			"fen":     r.Game.Position().String(),
 		},
+	},
 	)
 	return true
 }
@@ -175,14 +180,17 @@ func (r *GameRoom) RemovePlayer(client Sender) bool {
 func (r *GameRoom) EndGame() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.ended {
+		return
+	}
 	r.ended = true
 	r.BroadcastLocked(
 		OutgoingMessage{
-			Type: "GAME_ENDED", 
+			Type: "GAME_ENDED",
 			Payload: map[string]string{
-				"result": "opponent_disconnected", 
-				"reason": "reconnect_timeout", 
-				"fen": r.Game.Position().String(),
+				"result": "opponent_disconnected",
+				"reason": "reconnect_timeout",
+				"fen":    r.Game.Position().String(),
 			},
 		},
 	)
@@ -205,11 +213,11 @@ func (r *GameRoom) SendError(client Sender, err error) {
 	defer r.mu.Unlock()
 	data, _ := json.Marshal(
 		OutgoingMessage{
-			Type: TypeError, 
+			Type: TypeError,
 			Payload: map[string]string{
-				"message": err.Error(), 
-				"fen": r.Game.Position().String(), 
-				"turn": r.Game.Position().Turn().String(),
+				"message": err.Error(),
+				"fen":     r.Game.Position().String(),
+				"turn":    r.Game.Position().Turn().String(),
 			},
 		},
 	)

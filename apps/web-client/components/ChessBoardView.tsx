@@ -21,7 +21,6 @@ interface ChessBoardViewProps {
 export function ChessBoardView({
   fen,
   orientation = "white",
-  playerColor = "both",
   disabled = false,
   onMove,
 }: ChessBoardViewProps) {
@@ -39,25 +38,6 @@ export function ChessBoardView({
     targetSquare: string;
     color: "w" | "b";
   } | null>(null);
-
-  // Check if player is allowed to drag this piece
-  function isDraggablePiece({ piece }: { piece: string }) {
-    if (disabled) return false;
-    const isWhitePiece = piece.startsWith("w");
-    const turn = chess.turn();
-
-    // In online play, only drag your own color on players turn
-    if (playerColor !== "both") {
-      const isMyPiece = playerColor === "white" ? isWhitePiece : !isWhitePiece;
-      const isMyTurn =
-        (turn === "w" && playerColor === "white") ||
-        (turn === "b" && playerColor === "black");
-      return isMyPiece && isMyTurn;
-    }
-
-    // In practice mode, allow dragging whichever color's turn it is
-    return (turn === "w" && isWhitePiece) || (turn === "b" && !isWhitePiece);
-  }
 
   function getMoveOptions(square: Square) {
     const moves = chess.moves({ square, verbose: true });
