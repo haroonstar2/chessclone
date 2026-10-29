@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/corentings/chess/v2"
@@ -57,6 +58,8 @@ func (r *GameRoom) completeLocked() {
 			Result:        r.Game.Outcome().String(),
 		},
 	}
+
+	slog.Info("Game completed", "userId", r.WhiteID, "blackUserId", r.BlackID, "gameId", r.ID, "result", event.Payload.Result)
 
 	if r.onCompleted != nil {
 		r.onCompleted(event)

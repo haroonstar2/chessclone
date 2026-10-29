@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 interface PlayerCardProps {
   username: string;
   rating: number;
@@ -12,7 +14,7 @@ export function PlayerCard({ username, rating, timeRemaining, isActive, avatarUr
       <div className="flex items-center gap-3 md:gap-4">
         <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-300 rounded-lg overflow-hidden shrink-0">
           {avatarUrl ? (
-             <img src={avatarUrl} alt={username} className="w-full h-full object-cover" />
+             <Image width={48} height={48} unoptimized src={avatarUrl} alt={username} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-500">
                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

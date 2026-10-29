@@ -4,7 +4,7 @@ package ws
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -43,41 +43,41 @@ func NewHandler(redisClient RedisClient, hub *Hub) *ClientHandler {
 
 func (h *ClientHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
-	log.Println("WebSocket connection request received")
+	slog.Info("WebSocket connection request received")
 
 	ctx := context.Background()
 
 	// Extract the ticket from the query parameters
 	ticket := r.URL.Query().Get("ticket")
 	if ticket == "" {
-		log.Println("Missing ticket parameter")
+		slog.Info("Missing ticket parameter")
 		http.Error(w, "Missing ticket parameter", http.StatusBadRequest)
 		return
 	}
 
 	// Validate the ticket against Redis
-	log.Printf("Searching for ticket in Redis...")
+	slog.Debug("Validating connection ticket")
 	userUUID, err := h.redisClient.GetDel(ctx, ticket).Result()
 	if err == redis.Nil {
-		log.Println("Invalid or expired ticket")
+		slog.Info("Invalid or expired ticket")
 		http.Error(w, "Invalid or expired ticket", http.StatusUnauthorized)
 		return
 	} else if err != nil {
-		log.Printf("Error validating ticket: %v", err)
+		slog.Error("Ticket validation failed", "error", err)
 		http.Error(w, "Error validating ticket", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Ticket validated: %s", userUUID)
+	slog.Info("Connection ticket validated", "userId", userUUID, "gameId", r.URL.Query().Get("gameId"))
 
 	// Upgrade the HTTP connection to a WebSocket connection
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("Error upgrading to WebSocket: %v", err)
+		slog.Error("WebSocket upgrade failed", "userId", userUUID, "gameId", r.URL.Query().Get("gameId"), "error", err)
 		return
 	}
 
-	log.Printf("WebSocket connection established for user: %s", userUUID)
+	slog.Info("WebSocket connected", "userId", userUUID, "gameId", r.URL.Query().Get("gameId"))
 
 	// Create a new client and register it with the hub
 	client := &Client{
@@ -94,6 +94,7 @@ func (h *ClientHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		client.room, _ = h.hub.gameManager.Resume(client)
 	}
+	client.logger().Info("WebSocket session ready")
 	client.hub.register <- client
 
 	// Create a goroutine for the write pump to handle outgoing messages

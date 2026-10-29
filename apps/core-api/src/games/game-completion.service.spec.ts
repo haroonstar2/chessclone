@@ -72,7 +72,7 @@ describe('GameCompletionService', () => {
           pgn: event.payload.pgn,
           white_player_id: 'white',
           black_player_id: 'black',
-        }),
+        }) as unknown,
       }),
     );
 
@@ -158,7 +158,7 @@ describe('GameCompletionService', () => {
 
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        create: expect.objectContaining({ result: 'DRAW' }),
+        create: expect.objectContaining({ result: 'DRAW' }) as unknown,
       }),
     );
   });

@@ -257,7 +257,7 @@ export default function GamePage() {
         </div>
 
         {/* Side Column - Game Info Panel */}
-        <div className="w-full lg:w-96 flex flex-col gap-4 h-full max-h-[800px]">
+        <div className="w-full lg:w-96 flex flex-col gap-4 h-full max-h-200">
           <div
             data-testid="game-status-banner"
             className="bg-white p-4 rounded-lg shadow-sm border font-semibold text-center text-lg"

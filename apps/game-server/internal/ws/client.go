@@ -5,7 +5,7 @@ package ws
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -48,13 +48,14 @@ func (c *Client) Send(data []byte) {
 	select {
 	case c.send <- data:
 	default:
-		log.Printf("Send channel full for user %s, dropping message", c.UserUUID)
+		slog.Warn("WebSocket send buffer full", "userId", c.UserUUID)
 	}
 }
 
 // ReadPump listens for messages from this specific user's browser.
 func (c *Client) ReadPump() {
 	defer func() {
+		c.logger().Info("WebSocket disconnected")
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
@@ -72,16 +73,15 @@ func (c *Client) ReadPump() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
+				c.logger().Error("WebSocket read failed", "error", err)
 			}
 			break
 		}
-		log.Printf("Message from %s: %s", c.UserUUID, message)
 
 		// Unpack the message and handle it based on its type (JOIN_GAME, MOVE, etc.)
 		var incoming IncomingMessage
 		if err := json.Unmarshal(message, &incoming); err != nil {
-			log.Printf("Error unmarshaling message: %v", err)
+			c.logger().Warn("Invalid WebSocket message", "error", err)
 			continue
 		}
 
@@ -138,4 +138,14 @@ func (c *Client) closeSend() {
 func (c *Client) sendError(err error) {
 	data, _ := json.Marshal(game.OutgoingMessage{Type: game.TypeError, Payload: map[string]string{"message": err.Error()}})
 	c.Send(data)
+}
+
+// The room is assigned by the read pump before any room-specific messages.
+func (c *Client) logger() *slog.Logger {
+	gameID := ""
+	if c.room != nil {
+		gameID = c.room.ID
+	}
+
+	return slog.Default().With("userId", c.UserUUID, "gameId", gameID)
 }

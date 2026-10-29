@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { randomUUID, UUID } from 'crypto';
-import { UpdateSettingsDto } from './dto/update-settings.dto.js';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class SettingsService {

@@ -100,3 +100,17 @@ func TestPromotionPayload(t *testing.T) {
 		t.Fatalf("promotion rejected: %+v", msg)
 	}
 }
+
+func TestMoveRequestMetric(t *testing.T) {
+	hub := newTestHub()
+	client := &Client{UserUUID: "user", send: make(chan []byte, 10)}
+
+	hub.handleIncomingMessage(client, IncomingMessage{
+		Type:    "MOVE",
+		Payload: json.RawMessage(`{"from":"e2","to":"e4"}`),
+	})
+
+	if hub.MovesProcessed() != 1 {
+		t.Fatal("Rejected move request should still count as processed")
+	}
+}

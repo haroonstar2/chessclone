@@ -22,8 +22,8 @@ func TestCreateRedisClient(t *testing.T) {
 	ctx := context.Background()
 
 	if err := client.Ping(ctx).Err(); err != nil {
-        t.Fatalf("Failed to ping Redis: %v", err)
-    }
+		t.Fatalf("Failed to ping Redis: %v", err)
+	}
 
 	err = client.Set(ctx, "test_key", "test_value", 0).Err()
 	if err != nil {

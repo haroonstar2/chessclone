@@ -1,3 +1,4 @@
+import type { Request, Response } from 'express';
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -110,7 +111,10 @@ describe('AuthController', () => {
       password: '123',
     };
 
-    const result = await authController.signIn(dto, responseMock as any);
+    const result = await authController.signIn(
+      dto,
+      responseMock as unknown as Response,
+    );
 
     expect(authServiceMock.signIn).toHaveBeenCalledWith(
       dto.identifier,
@@ -130,8 +134,8 @@ describe('AuthController', () => {
     expect(result).toStrictEqual({ accessToken: 'mock-access-token' });
   });
 
-  it('AuthService.signOut() should call and remove cookie', async () => {
-    const result = await authController.signOut(responseMock as any);
+  it('AuthService.signOut() should call and remove cookie', () => {
+    const result = authController.signOut(responseMock as unknown as Response);
 
     expect(responseMock.clearCookie).toHaveBeenCalledWith('access_token');
 
@@ -177,7 +181,9 @@ describe('AuthController', () => {
       user: { sub: 'user-123' },
     };
 
-    const result = await authController.getTicket(request as any);
+    const result = await authController.getTicket(
+      request as unknown as Request,
+    );
 
     expect(authServiceMock.createTicket).toHaveBeenCalledWith('user-123');
     expect(result).toEqual({ ticket: 'mock-ticket' });
@@ -191,7 +197,7 @@ describe('AuthController', () => {
       password: '123',
     };
 
-    await authController.signIn(dto, responseMock as any);
+    await authController.signIn(dto, responseMock as unknown as Response);
 
     expect(responseMock.cookie).toHaveBeenCalledWith(
       'access_token',

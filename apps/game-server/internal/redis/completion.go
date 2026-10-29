@@ -3,7 +3,7 @@ package redis
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/haroonstar2/chessclone/apps/game-server/internal/game"
@@ -41,7 +41,7 @@ func CompletionHandler(client *redis.Client) func(game.CompletionEvent) {
 					return
 				}
 
-				log.Printf("Failed to publish completion for %s; retrying: %v", event.Payload.GameID, err)
+				slog.Error("Completion publish failed; retrying", "gameId", event.Payload.GameID, "userId", event.Payload.WhitePlayerID, "blackUserId", event.Payload.BlackPlayerID, "error", err)
 				time.Sleep(5 * time.Second)
 			}
 		}()

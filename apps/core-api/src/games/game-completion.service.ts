@@ -36,7 +36,7 @@ export class GameCompletionService
     this.subscriber = this.redis.getClient().duplicate();
 
     this.subscriber.on('error', (error) =>
-      this.logger.error('Completion subscriber error', error),
+      this.logger.error({ message: 'Completion subscriber error', err: error }),
     );
 
     this.subscriber.on('message', (channel, message) => {
@@ -86,8 +86,21 @@ export class GameCompletionService
 
   // Consumes a single game completion message, persisting it to the database and removing it from the pending set.
   async consume(message: string) {
+    let userId = '';
+    let gameId = '';
+
     try {
-      const event = JSON.parse(message);
+      const event = JSON.parse(message) as {
+        type?: unknown;
+        payload?: {
+          gameId: string;
+          whitePlayerId: string;
+          blackPlayerId: string;
+          pgn: string;
+          result: string;
+          winner: string | null;
+        };
+      } | null;
       const p = event?.payload;
 
       if (event?.type !== 'GAME_COMPLETED') {
@@ -112,6 +125,9 @@ export class GameCompletionService
       if (!hasRequiredFields) {
         throw new Error('Missing required fields');
       }
+
+      userId = p.whitePlayerId;
+      gameId = p.gameId;
 
       // Validate players are distinct
       if (p.whitePlayerId === p.blackPlayerId) {
@@ -217,13 +233,23 @@ export class GameCompletionService
         }
       }
 
+      this.logger.log({
+        message: 'Game completion persisted',
+        userId,
+        gameId,
+        blackUserId: p.blackPlayerId,
+        result,
+      });
+
       // Remove the game from the pending list in Redis after successful persistence.
       await this.redis.getClient().hdel(PENDING, p.gameId);
     } catch (error) {
-      this.logger.error(
-        'Failed to persist game completion; pending event retained',
-        error,
-      );
+      this.logger.error({
+        message: 'Failed to persist game completion; pending event retained',
+        userId,
+        gameId,
+        err: error,
+      });
     }
   }
 
@@ -242,7 +268,10 @@ export class GameCompletionService
         await this.consume(message);
       }
     } catch (error) {
-      this.logger.error('Unable to replay pending game completions', error);
+      this.logger.error({
+        message: 'Unable to replay pending game completions',
+        err: error,
+      });
     } finally {
       this.replaying = false;
     }

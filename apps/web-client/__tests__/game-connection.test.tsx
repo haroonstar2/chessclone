@@ -4,9 +4,15 @@ import { Chess } from "chess.js";
 import GamePage from "../app/game/[id]/page";
 import { apiClient } from "../lib/apiClient";
 jest.mock("../lib/apiClient", () => ({ apiClient: jest.fn() }));
-let boardOptions: any;
+type BoardOptions = {
+  position: string;
+  boardOrientation: string;
+  allowDragging: boolean;
+  onPieceDrop: (move: { sourceSquare: string; targetSquare: string }) => boolean;
+};
+let boardOptions: BoardOptions;
 jest.mock("react-chessboard", () => ({
-  Chessboard: ({ options }: any) => {
+  Chessboard: ({ options }: { options: BoardOptions }) => {
     boardOptions = options;
     return (
       <div
@@ -33,7 +39,7 @@ class Socket {
 let sockets: Socket[];
 beforeEach(() => {
   sockets = [];
-  global.WebSocket = Socket as any;
+  global.WebSocket = Socket as unknown as typeof WebSocket;
   (apiClient as jest.Mock).mockResolvedValue({ ticket: "ticket" });
 });
 async function setup() {
@@ -90,7 +96,7 @@ it("reports opponent disconnects", async () => {
   );
 });
 it("does not open a socket after unmount during authentication", async () => {
-  let resolve!: (value: any) => void;
+  let resolve!: (value: { ticket: string }) => void;
   (apiClient as jest.Mock).mockReturnValue(
     new Promise((r) => {
       resolve = r;

@@ -1,3 +1,7 @@
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { TraceInterceptor } from './logging/trace.interceptor.js';
+import { LoggerModule } from 'nestjs-pino';
+import { loggingOptions } from './logging/logging.config.js';
 import { GamesModule } from './games/games.module.js';
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller.js';
@@ -11,6 +15,7 @@ import { RedisModule } from './redis/redis.module.js';
 
 @Module({
   imports: [
+    LoggerModule.forRoot({ pinoHttp: loggingOptions, assignResponse: true }),
     GamesModule,
     SettingsModule,
     AuthModule,
@@ -22,6 +27,9 @@ import { RedisModule } from './redis/redis.module.js';
     }),
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_INTERCEPTOR, useClass: TraceInterceptor },
+  ],
 })
 export class AppModule {}

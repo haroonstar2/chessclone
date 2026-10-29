@@ -119,3 +119,19 @@ func (m *Manager) RemovePlayer(client Sender) {
 		m.timers[room][playerID] = timer
 	}
 }
+
+func (m *Manager) ActiveGames() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	count := 0
+	for _, room := range m.rooms {
+		room.mu.Lock()
+		if !room.ended {
+			count++
+		}
+		room.mu.Unlock()
+	}
+
+	return count
+}

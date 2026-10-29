@@ -1,5 +1,3 @@
-import { jest } from '@jest/globals';
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { SettingsService } from './settings.service.js';
 
