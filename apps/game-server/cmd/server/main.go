@@ -30,7 +30,7 @@ func main() {
 	log.Println("Redis client created successfully.")
 
 	// Create a new Hub for managing WebSocket connections
-	hub := ws.NewHub(game.NewManager())
+	hub := ws.NewHub(game.NewManager(redis.CompletionHandler(redisClient)))
 	go hub.Run()
 	log.Println("WebSocket Hub initialized and listening.")
 

@@ -7,14 +7,20 @@ import (
 )
 
 type Manager struct {
+	onCompleted func(CompletionEvent)
 	rooms       map[string]*GameRoom
 	mu          sync.RWMutex
 	gracePeriod time.Duration
 	timers      map[*GameRoom]map[PlayerID]*time.Timer
 }
 
-func NewManager() *Manager {
+func NewManager(handlers ...func(CompletionEvent)) *Manager {
+	var handler func(CompletionEvent)
+	if len(handlers) > 0 {
+		handler = handlers[0]
+	}
 	return &Manager{
+		onCompleted: handler,
 		rooms:       make(map[string]*GameRoom),
 		gracePeriod: 5 * time.Minute,
 		timers:      make(map[*GameRoom]map[PlayerID]*time.Timer),
@@ -37,6 +43,7 @@ func (m *Manager) CreateRoom(id string) *GameRoom {
 	defer m.mu.Unlock()
 
 	room := NewGameRoom(id)
+	room.onCompleted = m.onCompleted
 	m.rooms[id] = room
 	return room
 }
@@ -55,6 +62,7 @@ func (m *Manager) joinLocked(roomID string, client Sender) (*GameRoom, error) {
 	room := m.rooms[roomID]
 	if room == nil {
 		room = NewGameRoom(roomID)
+		room.onCompleted = m.onCompleted
 		m.rooms[roomID] = room
 	}
 	if err := room.AddPlayer(client); err != nil {
