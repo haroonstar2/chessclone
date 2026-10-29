@@ -5,6 +5,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { calculateElo } from './elo.js';
 import { RedisService } from '../redis/redis.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -61,14 +62,26 @@ export class GameCompletionService
 
   private getGameOutcome(result: string, whiteId: string, blackId: string) {
     if (result === '1-0') {
-      return { outcome: 'WHITE_WINS' as const, expectedWinner: whiteId };
+      return {
+        outcome: 'WHITE_WINS' as const,
+        expectedWinner: whiteId,
+        whiteScore: 1,
+      };
     }
 
     if (result === '0-1') {
-      return { outcome: 'BLACK_WINS' as const, expectedWinner: blackId };
+      return {
+        outcome: 'BLACK_WINS' as const,
+        expectedWinner: blackId,
+        whiteScore: 0,
+      };
     }
 
-    return { outcome: 'DRAW' as const, expectedWinner: null };
+    return {
+      outcome: 'DRAW' as const,
+      expectedWinner: null,
+      whiteScore: 0.5,
+    };
   }
 
   // Consumes a single game completion message, persisting it to the database and removing it from the pending set.
@@ -112,29 +125,97 @@ export class GameCompletionService
       }
 
       // Determine the game outcome and expected winner based on the result and player IDs
-      const { outcome: result, expectedWinner } = this.getGameOutcome(
-        p.result,
-        p.whitePlayerId,
-        p.blackPlayerId,
-      );
+      const {
+        outcome: result,
+        expectedWinner,
+        whiteScore,
+      } = this.getGameOutcome(p.result, p.whitePlayerId, p.blackPlayerId);
 
       if (p.winner !== expectedWinner) {
         throw new Error('Winner does not match the result');
       }
 
-      // Persist the game completion to the database, creating a new record if it doesn't exist or updating the existing one.
-      await this.prisma.game.upsert({
-        where: { uuid: p.gameId },
-        create: {
-          uuid: p.gameId,
-          white_player_id: p.whitePlayerId,
-          black_player_id: p.blackPlayerId,
-          status: 'COMPLETED',
-          result,
-          pgn: p.pgn,
-        },
-        update: { status: 'COMPLETED', result, pgn: p.pgn },
-      });
+      // Attempt to persist the game completion event in a transaction, retrying on failure.
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await this.prisma.$transaction(
+            async (tx) => {
+              const existing = await tx.game.findUnique({
+                where: { uuid: p.gameId },
+              });
+
+              if (existing) {
+                const whitePlayerMatches =
+                  existing.white_player_id === p.whitePlayerId;
+                const blackPlayerMatches =
+                  existing.black_player_id === p.blackPlayerId;
+
+                if (!whitePlayerMatches || !blackPlayerMatches) {
+                  throw new Error('Game players do not match completion event');
+                }
+              }
+
+              if (existing?.status === 'COMPLETED') {
+                if (existing.result !== result) {
+                  throw new Error('Conflicting result for completed game');
+                }
+
+                return;
+              }
+
+              const white = await tx.user.findUniqueOrThrow({
+                where: { uuid: p.whitePlayerId },
+              });
+
+              const black = await tx.user.findUniqueOrThrow({
+                where: { uuid: p.blackPlayerId },
+              });
+
+              const ratings = calculateElo(
+                white.current_rating,
+                black.current_rating,
+                whiteScore,
+              );
+
+              await tx.game.upsert({
+                where: { uuid: p.gameId },
+                create: {
+                  uuid: p.gameId,
+                  white_player_id: p.whitePlayerId,
+                  black_player_id: p.blackPlayerId,
+                  status: 'COMPLETED',
+                  result,
+                  pgn: p.pgn,
+                },
+                update: { status: 'COMPLETED', result, pgn: p.pgn },
+              });
+
+              await tx.user.update({
+                where: { uuid: p.whitePlayerId },
+                data: { current_rating: ratings.white },
+              });
+
+              await tx.user.update({
+                where: { uuid: p.blackPlayerId },
+                data: { current_rating: ratings.black },
+              });
+            },
+            { isolationLevel: 'Serializable' },
+          );
+
+          break;
+        } catch (error) {
+          // Concurrent games can touch the same users. Re-read their ratings
+          // in a fresh transaction after a serialization or creation conflict.
+          const code = (error as { code?: string })?.code;
+          const isTransactionConflict = code === 'P2034' || code === 'P2002';
+          const retriesExhausted = attempt >= 2;
+
+          if (!isTransactionConflict || retriesExhausted) {
+            throw error;
+          }
+        }
+      }
 
       // Remove the game from the pending list in Redis after successful persistence.
       await this.redis.getClient().hdel(PENDING, p.gameId);
