@@ -239,46 +239,5 @@ func (r *GameRoom) movesLocked() []map[string]string {
 
 // HandleResign processes a resignation from a player
 func (r *GameRoom) HandleResign(player Sender) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.ended {
-		return errors.New("game has ended")
-	}
-
-	// Verify the player is either White or Black
-	var winner PlayerID
-	if player == r.WhitePlayer {
-		winner = PlayerID(r.BlackID)
-	} else if player == r.BlackPlayer {
-		winner = PlayerID(r.WhiteID)
-	} else {
-		return errors.New("player is not part of this game")
-	}
-
-	// Mark game as ended
-	r.ended = true
-
-	// Set the outcome based on who resigned
-	color := chess.Black
-	if player == r.WhitePlayer {
-		color = chess.White
-	}
-	r.Game.Resign(color)
-
-	// Broadcast game completion
-	r.BroadcastLocked(OutgoingMessage{
-		Type: "GAME_COMPLETED",
-		Payload: CompletionEvent{
-			Payload: CompletionPayload{
-				GameID:        r.ID,
-				WhitePlayerID: r.WhiteID,
-				BlackPlayerID: r.BlackID,
-				Winner:        (*string)(&winner),
-				Result:        "resignation",
-			},
-		},
-	})
-
-	return nil
+	return r.Resign(player)
 }
