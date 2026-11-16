@@ -1,42 +1,8 @@
-// src/games/dto/match-history.dto.ts
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+// apps/web-client/lib/api/games.ts
+// This file should only contain API client functions, not DTOs or validation logic.
+// DTOs are now located in apps/core-api/src/games/dto/match-history.dto.ts
 
-export class GetMatchHistoryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number = 1;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(50)
-  limit?: number = 10;
-}
-
-export interface MatchHistoryItem {
-  gameId: string;
-  createdAt: Date;
-  playerColor: 'white' | 'black';
-  outcome: 'WIN' | 'LOSS' | 'DRAW';
-  result: 'WHITE_WINS' | 'BLACK_WINS' | 'DRAW';
-  opponent: {
-    uuid: string;
-    username: string;
-    rating: number;
-  };
-  pgn: string | null;
-}
-
-export interface PaginatedMatchHistoryResponse {
-  data: MatchHistoryItem[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
+export async function getMatchHistory(page: number = 1, limit: number = 10): Promise<unknown> {
+  // Implementation would go here
+  return Promise.resolve({});
 }
