@@ -97,9 +97,15 @@ func (r *GameRoom) BroadcastLocked(msg OutgoingMessage) {
 }
 
 // Authroize moves
-func (r *GameRoom) HandleMove(client Sender, from, to, promo string) error {
+func (r *GameRoom) HandleMove(client Sender, from, to, promo string) (err error) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	var publication *completionPublication
+	defer func() {
+		r.mu.Unlock()
+		if publication != nil {
+			r.publishCompletion(publication)
+		}
+	}()
 
 	if r.ended {
 		return errors.New("game has ended")
@@ -108,6 +114,9 @@ func (r *GameRoom) HandleMove(client Sender, from, to, promo string) error {
 	// Verify both players are present and turn order
 	if r.WhitePlayer == nil || r.BlackPlayer == nil {
 		return errors.New("waiting for opponent")
+	}
+	if r.Game == nil {
+		return errors.New("game is not initialized")
 	}
 
 	turn := r.Game.Position().Turn()
@@ -151,7 +160,7 @@ func (r *GameRoom) HandleMove(client Sender, from, to, promo string) error {
 		},
 	})
 
-	r.completeLocked()
+	publication = r.completeLocked()
 	return nil
 }
 
@@ -235,4 +244,9 @@ func (r *GameRoom) movesLocked() []map[string]string {
 		}
 	}
 	return history
+}
+
+// HandleResign processes a resignation from a player
+func (r *GameRoom) HandleResign(player Sender) error {
+	return r.Resign(player)
 }

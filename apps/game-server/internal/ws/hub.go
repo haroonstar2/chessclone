@@ -160,7 +160,7 @@ func (h *Hub) handleIncomingMessage(client *Client, message IncomingMessage) {
 			client.logger().Info("Move accepted")
 		}
 
-	case "RESIGN", "OFFER_DRAW", "ACCEPT_DRAW":
+	case "RESIGN":
 		room := client.room
 		if room == nil {
 			client.sendError(errors.New("join a game first"))
@@ -171,17 +171,21 @@ func (h *Hub) handleIncomingMessage(client *Client, message IncomingMessage) {
 			room.SendError(client, errors.New("game has expired"))
 			return
 		}
-		switch message.Type {
-		case "RESIGN":
-			err = room.Resign(client)
-		case "OFFER_DRAW":
-			err = room.OfferDraw(client)
-		case "ACCEPT_DRAW":
-			err = room.AcceptDraw(client)
+		var payload game.ResignPayload
+		if err := json.Unmarshal(message.Payload, &payload); err != nil {
+			room.SendError(client, err)
+			client.logger().Warn("Invalid resign payload", "error", err)
+			return
 		}
+		if payload.GameID != room.ID {
+			room.SendError(client, errors.New("wrong game"))
+			return
+		}
+		err = room.HandleResign(client)
 		if err != nil {
 			room.SendError(client, err)
 		}
+
 	default:
 		client.logger().Warn("Unknown WebSocket event", "eventType", message.Type)
 	}

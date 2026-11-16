@@ -1,10 +1,10 @@
 "use client";
-export function GameActionBar() {
+export function GameActionBar({ onResign }: { onResign?: () => void }) {
   return (
     <div className="bg-white p-4 rounded-lg shadow-sm border flex flex-wrap gap-3">
       <button
         className="flex-1 min-w-[80px] bg-red-50 text-red-700 font-medium py-2 px-3 rounded hover:bg-red-100 transition-colors border border-red-200"
-        onClick={() => console.log("Resign")}
+        onClick={onResign}
       >
         Resign
       </button>

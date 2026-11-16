@@ -1,6 +1,7 @@
 package game
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"time"
@@ -23,10 +24,18 @@ type CompletionEvent struct {
 	Timestamp time.Time         `json:"timestamp"`
 }
 
+type completionPublication struct {
+	event       CompletionEvent
+	fen         string
+	whitePlayer Sender
+	blackPlayer Sender
+	onCompleted func(CompletionEvent)
+}
+
 // completeLocked snapshots the final result exactly once while the room is locked.
-func (r *GameRoom) completeLocked() {
-	if r.ended || r.Game.Outcome() == chess.NoOutcome {
-		return
+func (r *GameRoom) completeLocked() *completionPublication {
+	if r.ended || r.Game == nil || r.Game.Outcome() == chess.NoOutcome {
+		return nil
 	}
 
 	r.ended = true
@@ -59,19 +68,39 @@ func (r *GameRoom) completeLocked() {
 		},
 	}
 
-	slog.Info("Game completed", "userId", r.WhiteID, "blackUserId", r.BlackID, "gameId", r.ID, "result", event.Payload.Result)
+	return &completionPublication{
+		event:       event,
+		fen:         r.Game.Position().String(),
+		whitePlayer: r.WhitePlayer,
+		blackPlayer: r.BlackPlayer,
+		onCompleted: r.onCompleted,
+	}
+}
 
-	if r.onCompleted != nil {
-		r.onCompleted(event)
+func (r *GameRoom) publishCompletion(publication *completionPublication) {
+	event := publication.event
+	slog.Info("Game completed", "userId", event.Payload.WhitePlayerID, "blackUserId", event.Payload.BlackPlayerID, "gameId", event.Payload.GameID, "result", event.Payload.Result)
+
+	if publication.onCompleted != nil {
+		publication.onCompleted(event)
 	}
 
-	r.BroadcastLocked(OutgoingMessage{
+	data, err := json.Marshal(OutgoingMessage{
 		Type: "GAME_ENDED",
 		Payload: map[string]string{
 			"result": event.Payload.Result,
-			"fen":    r.Game.Position().String(),
+			"fen":    publication.fen,
 		},
 	})
+	if err != nil {
+		return
+	}
+	if publication.whitePlayer != nil {
+		publication.whitePlayer.Send(data)
+	}
+	if publication.blackPlayer != nil {
+		publication.blackPlayer.Send(data)
+	}
 }
 
 func (r *GameRoom) participantLocked(client Sender) error {
@@ -79,72 +108,21 @@ func (r *GameRoom) participantLocked(client Sender) error {
 		return errors.New("game has ended")
 	}
 
+	if client == nil {
+		return errors.New("not a player in this game")
+	}
+
+	if r.WhitePlayer == nil || r.BlackPlayer == nil || r.WhiteID == "" || r.BlackID == "" {
+		return errors.New("waiting for opponent")
+	}
+
 	if client != r.WhitePlayer && client != r.BlackPlayer {
 		return errors.New("not a player in this game")
 	}
 
-	if r.WhiteID == "" || r.BlackID == "" {
-		return errors.New("waiting for opponent")
+	if r.Game == nil {
+		return errors.New("game is not initialized")
 	}
-
-	return nil
-}
-
-func (r *GameRoom) Resign(client Sender) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if err := r.participantLocked(client); err != nil {
-		return err
-	}
-
-	color := chess.Black
-	if client == r.WhitePlayer {
-		color = chess.White
-	}
-
-	r.Game.Resign(color)
-	r.completeLocked()
-
-	return nil
-}
-
-func (r *GameRoom) OfferDraw(client Sender) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if err := r.participantLocked(client); err != nil {
-		return err
-	}
-
-	r.drawOfferedBy = client.ID()
-
-	r.BroadcastLocked(OutgoingMessage{
-		Type: "DRAW_OFFERED",
-		Payload: map[string]string{
-			"playerId": client.ID().String(),
-		},
-	})
-
-	return nil
-}
-
-func (r *GameRoom) AcceptDraw(client Sender) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if err := r.participantLocked(client); err != nil {
-		return err
-	}
-
-	if r.drawOfferedBy == "" || r.drawOfferedBy == client.ID() {
-		return errors.New("no opponent draw offer")
-	}
-
-	if err := r.Game.Draw(chess.DrawOffer); err != nil {
-		return err
-	}
-	r.completeLocked()
 
 	return nil
 }

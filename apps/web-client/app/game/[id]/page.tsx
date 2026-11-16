@@ -165,6 +165,25 @@ export default function GamePage() {
     };
   }, [gameId]);
 
+  const handleResign = () => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    try {
+      socketRef.current.send(
+        JSON.stringify({
+          type: "RESIGN",
+          payload: {
+            gameId,
+          },
+        }),
+      );
+    } catch (error) {
+      console.error("Failed to send resign message:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-8 flex justify-center">
       <div className="max-w-6xl w-full flex flex-col lg:flex-row gap-8">
@@ -272,7 +291,7 @@ export default function GamePage() {
             <MoveHistory moves={moves} />
           </div>
 
-          <GameActionBar />
+          <GameActionBar onResign={handleResign} />
         </div>
       </div>
     </div>
