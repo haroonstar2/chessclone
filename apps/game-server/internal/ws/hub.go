@@ -177,6 +177,10 @@ func (h *Hub) handleIncomingMessage(client *Client, message IncomingMessage) {
 			client.logger().Warn("Invalid resign payload", "error", err)
 			return
 		}
+		if payload.GameID != room.ID {
+			room.SendError(client, errors.New("wrong game"))
+			return
+		}
 		err = room.HandleResign(client)
 		if err != nil {
 			room.SendError(client, err)
