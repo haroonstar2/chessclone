@@ -256,14 +256,6 @@ func (r *GameRoom) HandleResign(player Sender) error {
 		return errors.New("player is not part of this game")
 	}
 
-	// Determine the loser
-	var loser PlayerID
-	if player == r.WhitePlayer {
-		loser = PlayerID(r.WhiteID)
-	} else {
-		loser = PlayerID(r.BlackID)
-	}
-
 	// Mark game as ended
 	r.ended = true
 
@@ -276,22 +268,17 @@ func (r *GameRoom) HandleResign(player Sender) error {
 
 	// Broadcast game completion
 	r.BroadcastLocked(OutgoingMessage{
-		Type: TypeGameCompleted,
+		Type: "GAME_COMPLETED",
 		Payload: CompletionEvent{
-			Winner: winner,
-			Reason: "resignation",
-			FEN:    r.Game.Position().String(),
-			Moves:  r.movesLocked(),
+			Payload: CompletionPayload{
+				GameID:        r.ID,
+				WhitePlayerID: r.WhiteID,
+				BlackPlayerID: r.BlackID,
+				Winner:        (*string)(&winner),
+				Result:        "resignation",
+			},
 		},
 	})
 
 	return nil
 }
-
-// Type constants
-const (
-	TypeGameState     = "GAME_STATE"
-	TypeMove          = "MOVE"
-	TypeGameCompleted = "GAME_COMPLETED"
-	TypeError         = "ERROR"
-)
