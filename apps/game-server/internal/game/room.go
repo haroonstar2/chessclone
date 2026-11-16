@@ -248,19 +248,31 @@ func (r *GameRoom) HandleResign(player Sender) error {
 
 	// Verify the player is either White or Black
 	var winner PlayerID
-	var loser PlayerID
 	if player == r.WhitePlayer {
 		winner = PlayerID(r.BlackID)
-		loser = PlayerID(r.WhiteID)
 	} else if player == r.BlackPlayer {
 		winner = PlayerID(r.WhiteID)
-		loser = PlayerID(r.BlackID)
 	} else {
 		return errors.New("player is not part of this game")
 	}
 
+	// Determine the loser
+	var loser PlayerID
+	if player == r.WhitePlayer {
+		loser = PlayerID(r.WhiteID)
+	} else {
+		loser = PlayerID(r.BlackID)
+	}
+
 	// Mark game as ended
 	r.ended = true
+
+	// Set the outcome based on who resigned
+	color := chess.Black
+	if player == r.WhitePlayer {
+		color = chess.White
+	}
+	r.Game.Resign(color)
 
 	// Broadcast game completion
 	r.BroadcastLocked(OutgoingMessage{
@@ -283,17 +295,3 @@ const (
 	TypeGameCompleted = "GAME_COMPLETED"
 	TypeError         = "ERROR"
 )
-
-// OutgoingMessage represents a message sent to clients
-type OutgoingMessage struct {
-	Type    string      `json:"type"`
-	Payload interface{} `json:"payload"`
-}
-
-// CompletionEvent represents the game completion event
-type CompletionEvent struct {
-	Winner PlayerID `json:"winner"`
-	Reason string   `json:"reason"`
-	FEN    string   `json:"fen"`
-	Moves  []map[string]string `json:"moves"`
-}

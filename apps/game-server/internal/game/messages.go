@@ -31,6 +31,10 @@ type MovePayload struct {
 	Promotion string `json:"promotion,omitempty"`
 }
 
+type ResignPayload struct {
+	GameID string `json:"gameId"`
+}
+
 type OutgoingMessage struct {
 	Type      MessageType `json:"type"`
 	Payload   any         `json:"payload"`
