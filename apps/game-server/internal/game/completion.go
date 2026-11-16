@@ -89,3 +89,28 @@ func (r *GameRoom) participantLocked(client Sender) error {
 
 	return nil
 }
+
+// HandleResign processes a resignation from a player in the game.
+func (r *GameRoom) HandleResign(player Sender) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.participantLocked(player); err != nil {
+		return err
+	}
+
+	var winner PlayerID
+	if player == r.WhitePlayer {
+		winner = r.BlackID
+		r.Game.Resign(chess.White)
+	} else {
+		winner = r.WhiteID
+		r.Game.Resign(chess.Black)
+	}
+
+	// Set the winner and complete the game
+	id := winner.String()
+	r.completeLocked()
+
+	return nil
+}
