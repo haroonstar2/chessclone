@@ -160,9 +160,6 @@ func TestApprovedMoveProtocol(t *testing.T) {
 	}
 }
 
-// The test cases for resignation functionality are already present in the file
-// but they depend on the implementation which is missing from the main code
-// These tests will pass once the HandleResign method is implemented properly
 func TestGameRoom_Resign(t *testing.T) {
 	room := NewGameRoom("test-resign")
 	white := &MockPlayer{id: "user-white"}
