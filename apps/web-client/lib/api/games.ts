@@ -1,5 +1,5 @@
 // src/games/dto/match-history.dto.ts
-import { IsInt, IsOptional, Max, Min, ValidateIf } from 'class-validator';
+import { IsInt, IsOptional, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetMatchHistoryDto {
