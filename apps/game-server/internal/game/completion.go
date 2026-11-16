@@ -24,9 +24,9 @@ type CompletionEvent struct {
 }
 
 // completeLocked snapshots the final result exactly once while the room is locked.
-func (r *GameRoom) completeLocked() {
-	if r.ended || r.Game.Outcome() == chess.NoOutcome {
-		return
+func (r *GameRoom) completeLocked() (CompletionEvent, bool) {
+	if r.ended || r.Game == nil || r.Game.Outcome() == chess.NoOutcome {
+		return CompletionEvent{}, false
 	}
 
 	r.ended = true
@@ -59,12 +59,18 @@ func (r *GameRoom) completeLocked() {
 		},
 	}
 
-	slog.Info("Game completed", "userId", r.WhiteID, "blackUserId", r.BlackID, "gameId", r.ID, "result", event.Payload.Result)
+	return event, true
+}
+
+func (r *GameRoom) publishCompletion(event CompletionEvent) {
+	slog.Info("Game completed", "userId", event.Payload.WhitePlayerID, "blackUserId", event.Payload.BlackPlayerID, "gameId", event.Payload.GameID, "result", event.Payload.Result)
 
 	if r.onCompleted != nil {
 		r.onCompleted(event)
 	}
 
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.BroadcastLocked(OutgoingMessage{
 		Type: "GAME_ENDED",
 		Payload: map[string]string{
@@ -79,12 +85,20 @@ func (r *GameRoom) participantLocked(client Sender) error {
 		return errors.New("game has ended")
 	}
 
+	if client == nil {
+		return errors.New("not a player in this game")
+	}
+
+	if r.WhitePlayer == nil || r.BlackPlayer == nil || r.WhiteID == "" || r.BlackID == "" {
+		return errors.New("waiting for opponent")
+	}
+
 	if client != r.WhitePlayer && client != r.BlackPlayer {
 		return errors.New("not a player in this game")
 	}
 
-	if r.WhiteID == "" || r.BlackID == "" {
-		return errors.New("waiting for opponent")
+	if r.Game == nil {
+		return errors.New("game is not initialized")
 	}
 
 	return nil

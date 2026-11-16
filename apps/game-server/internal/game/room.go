@@ -97,9 +97,16 @@ func (r *GameRoom) BroadcastLocked(msg OutgoingMessage) {
 }
 
 // Authroize moves
-func (r *GameRoom) HandleMove(client Sender, from, to, promo string) error {
+func (r *GameRoom) HandleMove(client Sender, from, to, promo string) (err error) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	var event CompletionEvent
+	var completed bool
+	defer func() {
+		r.mu.Unlock()
+		if completed {
+			r.publishCompletion(event)
+		}
+	}()
 
 	if r.ended {
 		return errors.New("game has ended")
@@ -151,7 +158,7 @@ func (r *GameRoom) HandleMove(client Sender, from, to, promo string) error {
 		},
 	})
 
-	r.completeLocked()
+	event, completed = r.completeLocked()
 	return nil
 }
 

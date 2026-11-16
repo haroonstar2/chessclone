@@ -182,7 +182,7 @@ func TestGameRoom_Resign(t *testing.T) {
 	if !room.ended {
 		t.Fatal("game should be ended after resignation")
 	}
-	
+
 	// Try to resign again -> should fail
 	err = room.HandleResign(black)
 	if err == nil {
@@ -200,6 +200,10 @@ func TestGameRoom_ResignBlack(t *testing.T) {
 	room := NewGameRoom("test-resign-black")
 	white := &MockPlayer{id: "user-white"}
 	black := &MockPlayer{id: "user-black"}
+	var completion CompletionEvent
+	room.onCompleted = func(event CompletionEvent) {
+		completion = event
+	}
 
 	if err := room.AddPlayer(white); err != nil {
 		t.Fatalf("failed to add white: %v", err)
@@ -218,7 +222,13 @@ func TestGameRoom_ResignBlack(t *testing.T) {
 	if !room.ended {
 		t.Fatal("game should be ended after resignation")
 	}
-	
+	if completion.Payload.Winner == nil || *completion.Payload.Winner != "user-white" {
+		t.Fatalf("expected white to win, got %+v", completion.Payload.Winner)
+	}
+	if completion.Payload.Result != "1-0" {
+		t.Fatalf("expected resignation result 1-0, got %q", completion.Payload.Result)
+	}
+
 	// Try to resign again -> should fail
 	err = room.HandleResign(white)
 	if err == nil {
@@ -249,5 +259,36 @@ func TestGameRoom_ResignNonParticipant(t *testing.T) {
 	err := room.HandleResign(spectator)
 	if err == nil {
 		t.Fatal("expected error resigning as non-participant")
+	}
+	if err := room.HandleResign(nil); err == nil {
+		t.Fatal("expected error resigning with a nil player")
+	}
+}
+
+func TestGameRoom_ResignRequiresBothPlayers(t *testing.T) {
+	room := NewGameRoom("test-resign-disconnected")
+	white := &MockPlayer{id: "user-white"}
+	black := &MockPlayer{id: "user-black"}
+	_ = room.AddPlayer(white)
+	_ = room.AddPlayer(black)
+	room.RemovePlayer(black)
+
+	if err := room.HandleResign(white); err == nil {
+		t.Fatal("expected resignation to fail while opponent is disconnected")
+	}
+}
+
+func TestGameRoom_ResignUninitializedGame(t *testing.T) {
+	white := &MockPlayer{id: "user-white"}
+	black := &MockPlayer{id: "user-black"}
+	room := &GameRoom{
+		WhitePlayer: white,
+		WhiteID:     "user-white",
+		BlackPlayer: black,
+		BlackID:     "user-black",
+	}
+
+	if err := room.HandleResign(white); err == nil {
+		t.Fatal("expected resignation to fail for an uninitialized game")
 	}
 }
