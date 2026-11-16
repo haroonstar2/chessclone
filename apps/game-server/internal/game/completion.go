@@ -1,6 +1,7 @@
 package game
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"time"
@@ -23,10 +24,18 @@ type CompletionEvent struct {
 	Timestamp time.Time         `json:"timestamp"`
 }
 
+type completionPublication struct {
+	event       CompletionEvent
+	fen         string
+	whitePlayer Sender
+	blackPlayer Sender
+	onCompleted func(CompletionEvent)
+}
+
 // completeLocked snapshots the final result exactly once while the room is locked.
-func (r *GameRoom) completeLocked() (CompletionEvent, bool) {
+func (r *GameRoom) completeLocked() *completionPublication {
 	if r.ended || r.Game == nil || r.Game.Outcome() == chess.NoOutcome {
-		return CompletionEvent{}, false
+		return nil
 	}
 
 	r.ended = true
@@ -59,25 +68,39 @@ func (r *GameRoom) completeLocked() (CompletionEvent, bool) {
 		},
 	}
 
-	return event, true
+	return &completionPublication{
+		event:       event,
+		fen:         r.Game.Position().String(),
+		whitePlayer: r.WhitePlayer,
+		blackPlayer: r.BlackPlayer,
+		onCompleted: r.onCompleted,
+	}
 }
 
-func (r *GameRoom) publishCompletion(event CompletionEvent) {
+func (r *GameRoom) publishCompletion(publication *completionPublication) {
+	event := publication.event
 	slog.Info("Game completed", "userId", event.Payload.WhitePlayerID, "blackUserId", event.Payload.BlackPlayerID, "gameId", event.Payload.GameID, "result", event.Payload.Result)
 
-	if r.onCompleted != nil {
-		r.onCompleted(event)
+	if publication.onCompleted != nil {
+		publication.onCompleted(event)
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.BroadcastLocked(OutgoingMessage{
+	data, err := json.Marshal(OutgoingMessage{
 		Type: "GAME_ENDED",
 		Payload: map[string]string{
 			"result": event.Payload.Result,
-			"fen":    r.Game.Position().String(),
+			"fen":    publication.fen,
 		},
 	})
+	if err != nil {
+		return
+	}
+	if publication.whitePlayer != nil {
+		publication.whitePlayer.Send(data)
+	}
+	if publication.blackPlayer != nil {
+		publication.blackPlayer.Send(data)
+	}
 }
 
 func (r *GameRoom) participantLocked(client Sender) error {

@@ -99,12 +99,11 @@ func (r *GameRoom) BroadcastLocked(msg OutgoingMessage) {
 // Authroize moves
 func (r *GameRoom) HandleMove(client Sender, from, to, promo string) (err error) {
 	r.mu.Lock()
-	var event CompletionEvent
-	var completed bool
+	var publication *completionPublication
 	defer func() {
 		r.mu.Unlock()
-		if completed {
-			r.publishCompletion(event)
+		if publication != nil {
+			r.publishCompletion(publication)
 		}
 	}()
 
@@ -115,6 +114,9 @@ func (r *GameRoom) HandleMove(client Sender, from, to, promo string) (err error)
 	// Verify both players are present and turn order
 	if r.WhitePlayer == nil || r.BlackPlayer == nil {
 		return errors.New("waiting for opponent")
+	}
+	if r.Game == nil {
+		return errors.New("game is not initialized")
 	}
 
 	turn := r.Game.Position().Turn()
@@ -158,7 +160,7 @@ func (r *GameRoom) HandleMove(client Sender, from, to, promo string) (err error)
 		},
 	})
 
-	event, completed = r.completeLocked()
+	publication = r.completeLocked()
 	return nil
 }
 

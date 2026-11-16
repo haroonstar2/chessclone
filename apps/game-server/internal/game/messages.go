@@ -51,11 +51,17 @@ func (m OutgoingMessage) MarshalJSON() ([]byte, error) {
 	return json.Marshal(message(m))
 }
 
-func (r *GameRoom) Resign(client Sender) error {
+func (r *GameRoom) Resign(client Sender) (err error) {
 	r.mu.Lock()
+	var publication *completionPublication
+	defer func() {
+		r.mu.Unlock()
+		if publication != nil {
+			r.publishCompletion(publication)
+		}
+	}()
 
 	if err := r.participantLocked(client); err != nil {
-		r.mu.Unlock()
 		return err
 	}
 
@@ -65,11 +71,7 @@ func (r *GameRoom) Resign(client Sender) error {
 	}
 
 	r.Game.Resign(color)
-	event, completed := r.completeLocked()
-	r.mu.Unlock()
-	if completed {
-		r.publishCompletion(event)
-	}
+	publication = r.completeLocked()
 
 	return nil
 }
