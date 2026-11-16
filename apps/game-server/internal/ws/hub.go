@@ -160,7 +160,29 @@ func (h *Hub) handleIncomingMessage(client *Client, message IncomingMessage) {
 			client.logger().Info("Move accepted")
 		}
 
-	case "RESIGN", "OFFER_DRAW", "ACCEPT_DRAW":
+	case "RESIGN":
+		room := client.room
+		if room == nil {
+			client.sendError(errors.New("join a game first"))
+			return
+		}
+		active, err := h.gameManager.GetRoom(room.ID)
+		if err != nil || active != room {
+			room.SendError(client, errors.New("game has expired"))
+			return
+		}
+		var payload game.ResignPayload
+		if err := json.Unmarshal(message.Payload, &payload); err != nil {
+			room.SendError(client, err)
+			client.logger().Warn("Invalid resign payload", "error", err)
+			return
+		}
+		err = room.HandleResign(client)
+		if err != nil {
+			room.SendError(client, err)
+		}
+
+	case "OFFER_DRAW", "ACCEPT_DRAW":
 		room := client.room
 		if room == nil {
 			client.sendError(errors.New("join a game first"))
@@ -172,8 +194,6 @@ func (h *Hub) handleIncomingMessage(client *Client, message IncomingMessage) {
 			return
 		}
 		switch message.Type {
-		case "RESIGN":
-			err = room.Resign(client)
 		case "OFFER_DRAW":
 			err = room.OfferDraw(client)
 		case "ACCEPT_DRAW":

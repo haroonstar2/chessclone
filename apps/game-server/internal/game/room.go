@@ -236,3 +236,64 @@ func (r *GameRoom) movesLocked() []map[string]string {
 	}
 	return history
 }
+
+// HandleResign processes a resignation from a player
+func (r *GameRoom) HandleResign(player Sender) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.ended {
+		return errors.New("game has ended")
+	}
+
+	// Verify the player is either White or Black
+	var winner PlayerID
+	var loser PlayerID
+	if player == r.WhitePlayer {
+		winner = PlayerID(r.BlackID)
+		loser = PlayerID(r.WhiteID)
+	} else if player == r.BlackPlayer {
+		winner = PlayerID(r.WhiteID)
+		loser = PlayerID(r.BlackID)
+	} else {
+		return errors.New("player is not part of this game")
+	}
+
+	// Mark game as ended
+	r.ended = true
+
+	// Broadcast game completion
+	r.BroadcastLocked(OutgoingMessage{
+		Type: TypeGameCompleted,
+		Payload: CompletionEvent{
+			Winner: winner,
+			Reason: "resignation",
+			FEN:    r.Game.Position().String(),
+			Moves:  r.movesLocked(),
+		},
+	})
+
+	return nil
+}
+
+// Type constants
+const (
+	TypeGameState     = "GAME_STATE"
+	TypeMove          = "MOVE"
+	TypeGameCompleted = "GAME_COMPLETED"
+	TypeError         = "ERROR"
+)
+
+// OutgoingMessage represents a message sent to clients
+type OutgoingMessage struct {
+	Type    string      `json:"type"`
+	Payload interface{} `json:"payload"`
+}
+
+// CompletionEvent represents the game completion event
+type CompletionEvent struct {
+	Winner PlayerID `json:"winner"`
+	Reason string   `json:"reason"`
+	FEN    string   `json:"fen"`
+	Moves  []map[string]string `json:"moves"`
+}
