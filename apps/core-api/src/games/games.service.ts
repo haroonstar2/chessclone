@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { MatchHistoryItem, PaginatedMatchHistoryResponse } from './dto/match-history.dto';
+import { MatchHistoryItem, PaginatedMatchHistoryResponse } from './dto/match-history.dto.js';
 
 @Injectable()
 export class GamesService {
@@ -16,32 +16,32 @@ export class GamesService {
         where: {
           status: 'COMPLETED',
           OR: [
-            { whitePlayerId: userUuid },
-            { blackPlayerId: userUuid },
+            { white_player_id: userUuid },
+            { black_player_id: userUuid },
           ],
         },
         orderBy: {
-          createdAt: 'desc',
+          created_at: 'desc',
         },
         skip: (page - 1) * limit,
         take: limit,
         select: {
           uuid: true,
-          createdAt: true,
+          created_at: true,
           result: true,
           pgn: true,
-          whitePlayer: {
+          white_player: {
             select: {
               uuid: true,
               username: true,
-              currentRating: true,
+              current_rating: true,
             },
           },
-          blackPlayer: {
+          black_player: {
             select: {
               uuid: true,
               username: true,
-              currentRating: true,
+              current_rating: true,
             },
           },
         },
@@ -50,17 +50,17 @@ export class GamesService {
         where: {
           status: 'COMPLETED',
           OR: [
-            { whitePlayerId: userUuid },
-            { blackPlayerId: userUuid },
+            { white_player_id: userUuid },
+            { black_player_id: userUuid },
           ],
         },
       }),
     ]);
 
     const data = games.map((game) => {
-      const isWhitePlayer = game.whitePlayer.uuid === userUuid;
+      const isWhitePlayer = game.white_player.uuid === userUuid;
       const playerColor = isWhitePlayer ? 'white' : 'black';
-      const opponent = isWhitePlayer ? game.blackPlayer : game.whitePlayer;
+      const opponent = isWhitePlayer ? game.black_player : game.white_player;
       
       let outcome: 'WIN' | 'LOSS' | 'DRAW';
       
@@ -74,14 +74,14 @@ export class GamesService {
 
       return {
         gameId: game.uuid,
-        createdAt: game.createdAt,
+        createdAt: game.created_at,
         playerColor,
         outcome,
         result: game.result,
         opponent: {
           uuid: opponent.uuid,
           username: opponent.username,
-          rating: opponent.currentRating,
+          rating: opponent.current_rating,
         },
         pgn: game.pgn,
       };

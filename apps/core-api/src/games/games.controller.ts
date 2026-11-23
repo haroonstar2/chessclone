@@ -1,14 +1,17 @@
 import { Controller, Get, Query, Req } from '@nestjs/common';
-import { GamesService } from './games.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { GamesService } from './games.service.js';
+import { AuthGuard } from '../auth/auth.guard.js';
 import { UseGuards } from '@nestjs/common';
-import { GetMatchHistoryDto, PaginatedMatchHistoryResponse } from './dto/match-history.dto';
+import {
+  GetMatchHistoryDto,
+  PaginatedMatchHistoryResponse,
+} from './dto/match-history.dto.js';
 
 @Controller()
 export class GamesController {
   constructor(private readonly gamesService: GamesService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AuthGuard)
   @Get('games/history')
   async getMatchHistory(
     @Req() req,
