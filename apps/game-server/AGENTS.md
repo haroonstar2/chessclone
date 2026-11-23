@@ -35,5 +35,37 @@ new top-level directories or a `pkg/` folder without being asked.
 ## Verify
 
 ```bash
-npm run verify:game   # from the repository root (go build, go vet, go test)
+npm run verify:game   # from the repository root (go build, go vet, go test -short)
 ```
+
+## Tests that need live services: do not run or modify
+
+| Test | Needs | Handling |
+| ---- | ----- | -------- |
+| `TestCreateRedisClient` in `internal/redis/redis_test.go` | A running Redis | Skipped by `-short` (already in `verify:game`). The maintainer runs it with `npm run verify:game:full`. |
+
+- Do not run `go test` without `-short`, and do not run `verify:game:full`.
+- Do not edit, delete, or add `t.Skip` to the test above, and do not change
+  `CreateRedisClient` to make it pass.
+- New tests that need a real Redis must start with
+  `if testing.Short() { t.Skip("needs Redis") }` and be added to this table.
+  Prefer mocks (see `RedisClientMock` in `internal/ws/handler_test.go`, or the
+  hook in `internal/redis/completion_test.go`).
+
+### Loopback-socket tests (not Redis)
+
+These start an `httptest.NewServer` and dial `127.0.0.1`. They need no
+external service and normally pass:
+
+- `internal/ws/client_test.go`: `TestClientWritePump`, `TestClientReadPump`,
+  `TestClientReadPumpClose`, `TestClientWritePumpClose`,
+  `TestClientReadPumpUnexpectedClose`
+- `internal/ws/handler_test.go`: `TestHandler_ValidTicket`,
+  `TestHandler_ValidTicket_InvalidUpgrade`, `TestSocketProtocolAndRefresh`
+
+If they fail only with `connectex: An attempt was made to access a socket in
+a way forbidden by its access permissions` (or `bind: permission denied`),
+your environment blocks local sockets. That is not a code bug: do not edit
+these tests or the code under them. Report it as a blocker (root `AGENTS.md`
+rule 11) and continue. Any other failure in these tests is real and must be
+fixed.

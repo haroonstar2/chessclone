@@ -11,7 +11,8 @@
     "build": "npm run build --workspaces",
     "verify": "npm run verify:api && npm run verify:game && npm run verify:web",
     "verify:api": "npm run verify -w core-api",
-    "verify:game": "go -C apps/game-server build ./... && go -C apps/game-server vet ./... && go -C apps/game-server test ./...",
+    "verify:game": "go -C apps/game-server build ./... && go -C apps/game-server vet ./... && go -C apps/game-server test -short ./...",
+    "verify:game:full": "go -C apps/game-server build ./... && go -C apps/game-server vet ./... && go -C apps/game-server test ./...",
     "verify:web": "npm run test -w web-client"
   },
   "devDependencies": {

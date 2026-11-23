@@ -56,8 +56,10 @@ Prisma types come from the generated client:
 `import { Prisma, User } from '../../generated/prisma/client.js';`
 Do not import from `@prisma/client`.
 
-Schema changes: edit `prisma/schema.prisma` and run
-`npm run prisma:migrate -w core-api`. Never hand-write migration SQL.
+Schema changes: edit `prisma/schema.prisma`, run
+`npm run prisma:generate -w core-api`, and state in your summary that a
+migration is needed. Do not run `prisma:migrate` (it needs a live database;
+the maintainer creates the migration). Never hand-write migration SQL.
 
 ### 2. Relative imports must end in `.js`
 
@@ -127,4 +129,19 @@ npm run verify:api   # from the repository root
 ```
 
 This runs `prisma generate`, `tsc --noEmit`, ESLint (no auto-fix), and Jest.
-It must pass before you finish.
+It must pass before you finish. It needs no running Postgres or Redis: every
+`src/**/*.spec.ts` uses mocks.
+
+## Tests that need live services: do not run or modify
+
+| Test | Needs | Handling |
+| ---- | ----- | -------- |
+| `test/app.e2e-spec.ts` (run by `npm run test:e2e`, config `test/jest-e2e.json`) | Postgres + Redis (boots the full `AppModule`) | Not part of `verify`. The maintainer runs it. |
+
+- Do not run `npm run test:e2e`, `prisma:migrate`, `prisma:deploy`, or
+  `prisma:studio`; they connect to a real database.
+- Do not edit or delete files in `test/`.
+- Unit tests in `src/` must never connect to a real database or Redis. Mock
+  `PrismaService` / `RedisService` with `useValue` as the existing specs do.
+  If something can only be tested against a live service, say so in your
+  summary instead of writing that test.

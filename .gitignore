@@ -82,6 +82,9 @@ next-env.d.ts
 .temp
 .tmp
 
+# Agent scratch space (plans/checklists, see AGENTS.md)
+.agent/
+
 # Runtime data
 pids
 *.pid
