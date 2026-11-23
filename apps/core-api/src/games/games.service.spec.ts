@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { jest } from '@jest/globals';
 
 import { GamesService } from './games.service.js';
 
@@ -10,7 +11,7 @@ describe('GamesService', () => {
   let prismaService: PrismaService;
 
   const mockPrisma = {
-    $transaction: jest.fn(),
+    $transaction: jest.fn<() => Promise<unknown>>(),
 
     game: {
       findMany: jest.fn(),
@@ -105,7 +106,12 @@ describe('GamesService', () => {
     const mockTotal = 25;
 
     beforeEach(() => {
-      mockPrisma.$transaction.mockResolvedValue([mockGames, mockTotal]);
+      (mockPrisma.$transaction as jest.MockedFunction<
+        () => Promise<unknown>
+      >).mockResolvedValue([
+        mockGames,
+        mockTotal,
+      ]);
     });
 
     it('should calculate pagination correctly', async () => {

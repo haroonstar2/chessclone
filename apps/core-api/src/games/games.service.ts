@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { MatchHistoryItem, PaginatedMatchHistoryResponse } from './dto/match-history.dto.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import {
+  MatchHistoryItem,
+  PaginatedMatchHistoryResponse,
+} from './dto/match-history.dto.js';
 
 @Injectable()
 export class GamesService {
@@ -15,10 +18,7 @@ export class GamesService {
       this.prisma.game.findMany({
         where: {
           status: 'COMPLETED',
-          OR: [
-            { white_player_id: userUuid },
-            { black_player_id: userUuid },
-          ],
+          OR: [{ white_player_id: userUuid }, { black_player_id: userUuid }],
         },
         orderBy: {
           created_at: 'desc',
@@ -49,24 +49,23 @@ export class GamesService {
       this.prisma.game.count({
         where: {
           status: 'COMPLETED',
-          OR: [
-            { white_player_id: userUuid },
-            { black_player_id: userUuid },
-          ],
+          OR: [{ white_player_id: userUuid }, { black_player_id: userUuid }],
         },
       }),
     ]);
 
-    const data = games.map((game) => {
+    const data: MatchHistoryItem[] = games.map((game) => {
       const isWhitePlayer = game.white_player.uuid === userUuid;
-      const playerColor = isWhitePlayer ? 'white' : 'black';
+      const playerColor: 'white' | 'black' = isWhitePlayer ? 'white' : 'black';
       const opponent = isWhitePlayer ? game.black_player : game.white_player;
-      
+      const result: 'WHITE_WINS' | 'BLACK_WINS' | 'DRAW' =
+        game.result ?? 'DRAW';
+
       let outcome: 'WIN' | 'LOSS' | 'DRAW';
-      
-      if (game.result === 'WHITE_WINS') {
+
+      if (result === 'WHITE_WINS') {
         outcome = isWhitePlayer ? 'WIN' : 'LOSS';
-      } else if (game.result === 'BLACK_WINS') {
+      } else if (result === 'BLACK_WINS') {
         outcome = isWhitePlayer ? 'LOSS' : 'WIN';
       } else {
         outcome = 'DRAW';
@@ -77,7 +76,7 @@ export class GamesService {
         createdAt: game.created_at,
         playerColor,
         outcome,
-        result: game.result,
+        result,
         opponent: {
           uuid: opponent.uuid,
           username: opponent.username,
