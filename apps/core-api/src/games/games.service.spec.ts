@@ -8,15 +8,13 @@ import { PrismaService } from '../prisma/prisma.service.js';
 describe('GamesService', () => {
   let service: GamesService;
 
-  let prismaService: PrismaService;
-
   const mockPrisma = {
     $transaction: jest.fn<() => Promise<unknown>>(),
 
     game: {
-      findMany: jest.fn(),
+      findMany: jest.fn<() => Promise<unknown>>(),
 
-      count: jest.fn(),
+      count: jest.fn<() => Promise<number>>(),
     },
   };
 
@@ -34,8 +32,6 @@ describe('GamesService', () => {
     }).compile();
 
     service = module.get<GamesService>(GamesService);
-
-    prismaService = module.get<PrismaService>(PrismaService);
   });
 
   it('should be defined', () => {
@@ -108,12 +104,9 @@ describe('GamesService', () => {
     beforeEach(() => {
       mockPrisma.game.findMany.mockResolvedValue(mockGames);
       mockPrisma.game.count.mockResolvedValue(mockTotal);
-      (mockPrisma.$transaction as jest.MockedFunction<
-        () => Promise<unknown>
-      >).mockResolvedValue([
-        mockGames,
-        mockTotal,
-      ]);
+      (
+        mockPrisma.$transaction as jest.MockedFunction<() => Promise<unknown>>
+      ).mockResolvedValue([mockGames, mockTotal]);
     });
 
     it('should calculate pagination correctly', async () => {

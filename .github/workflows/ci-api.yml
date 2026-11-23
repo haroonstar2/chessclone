@@ -64,6 +64,12 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate -w core-api
 
+      - name: Typecheck (includes spec files)
+        run: npm run typecheck -w core-api
+
+      - name: Lint
+        run: npm run lint:check -w core-api
+
       - name: Apply Prisma migrations
         run: npm run prisma:deploy -w core-api
 

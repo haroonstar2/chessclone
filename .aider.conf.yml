@@ -1,0 +1,23 @@
+# Aider adapter. Run aider from the repository root.
+
+# Read-only context loaded into every chat. Aider does not discover AGENTS.md
+# files on its own.
+read:
+  - AGENTS.md
+  - apps/core-api/AGENTS.md
+  - apps/game-server/AGENTS.md
+  - apps/web-client/AGENTS.md
+  - apps/core-api/prisma/schema.prisma
+  - apps/core-api/src/auth/auth.guard.ts
+  - apps/core-api/src/games/games.module.ts
+
+# After every edit, run the verification CI.
+# Failures are fed back to the model so it fixes its own mistakes before committing.
+test-cmd: npm run verify
+auto-test: true
+
+# Built-in tree-sitter syntax lint on edited files.
+auto-lint: true
+
+# Keep aider's own scratch files out of git.
+gitignore: true
