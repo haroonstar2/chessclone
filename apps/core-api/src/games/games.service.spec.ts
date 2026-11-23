@@ -53,52 +53,52 @@ describe('GamesService', () => {
       {
         uuid: 'game-1',
 
-        createdAt: new Date('2023-01-01'),
+        created_at: new Date('2023-01-01'),
 
         result: 'WHITE_WINS',
 
         pgn: null,
 
-        whitePlayer: {
+        white_player: {
           uuid: userUuid,
 
           username: 'player1',
 
-          currentRating: 1200,
+          current_rating: 1200,
         },
 
-        blackPlayer: {
+        black_player: {
           uuid: 'opponent-uuid',
 
           username: 'opponent1',
 
-          currentRating: 1300,
+          current_rating: 1300,
         },
       },
 
       {
         uuid: 'game-2',
 
-        createdAt: new Date('2023-01-02'),
+        created_at: new Date('2023-01-02'),
 
         result: 'BLACK_WINS',
 
         pgn: null,
 
-        whitePlayer: {
+        white_player: {
           uuid: 'opponent-uuid-2',
 
           username: 'opponent2',
 
-          currentRating: 1400,
+          current_rating: 1400,
         },
 
-        blackPlayer: {
+        black_player: {
           uuid: userUuid,
 
           username: 'player1',
 
-          currentRating: 1200,
+          current_rating: 1200,
         },
       },
     ];
@@ -106,6 +106,8 @@ describe('GamesService', () => {
     const mockTotal = 25;
 
     beforeEach(() => {
+      mockPrisma.game.findMany.mockResolvedValue(mockGames);
+      mockPrisma.game.count.mockResolvedValue(mockTotal);
       (mockPrisma.$transaction as jest.MockedFunction<
         () => Promise<unknown>
       >).mockResolvedValue([
@@ -139,9 +141,9 @@ describe('GamesService', () => {
 
       expect(result.data[0].outcome).toBe('WIN'); // WHITE_WINS -> WIN
 
-      expect(result.data[1].playerColor).toBe('white');
+      expect(result.data[1].playerColor).toBe('black');
 
-      expect(result.data[1].outcome).toBe('LOSS'); // BLACK_WINS -> LOSS
+      expect(result.data[1].outcome).toBe('WIN'); // BLACK_WINS -> WIN
     });
 
     it('should map outcomes correctly for black player', async () => {
@@ -151,9 +153,9 @@ describe('GamesService', () => {
 
       expect(result.data[0].outcome).toBe('WIN'); // WHITE_WINS -> WIN
 
-      expect(result.data[1].playerColor).toBe('white');
+      expect(result.data[1].playerColor).toBe('black');
 
-      expect(result.data[1].outcome).toBe('LOSS'); // BLACK_WINS -> LOSS
+      expect(result.data[1].outcome).toBe('WIN'); // BLACK_WINS -> WIN
     });
 
     it('should populate opponent details correctly', async () => {
