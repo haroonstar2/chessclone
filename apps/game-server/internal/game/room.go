@@ -250,3 +250,46 @@ func (r *GameRoom) movesLocked() []map[string]string {
 func (r *GameRoom) HandleResign(player Sender) error {
 	return r.Resign(player)
 }
+
+func (r *GameRoom) OfferDraw(player Sender) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.participantLocked(player); err != nil {
+		return err
+	}
+	if r.drawOfferedBy != "" {
+		return errors.New("draw already offered")
+	}
+
+	r.drawOfferedBy = player.ID()
+	return nil
+}
+
+func (r *GameRoom) AcceptDraw(player Sender) error {
+	r.mu.Lock()
+	var publication *completionPublication
+	defer func() {
+		r.mu.Unlock()
+		if publication != nil {
+			r.publishCompletion(publication)
+		}
+	}()
+
+	if err := r.participantLocked(player); err != nil {
+		return err
+	}
+	if r.drawOfferedBy == "" {
+		return errors.New("no draw offer")
+	}
+	if r.drawOfferedBy == player.ID() {
+		return errors.New("cannot accept own draw offer")
+	}
+	if err := r.Game.Draw(chess.DrawOffer); err != nil {
+		return err
+	}
+
+	r.drawOfferedBy = ""
+	publication = r.completeLocked()
+	return nil
+}

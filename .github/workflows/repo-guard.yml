@@ -1,0 +1,47 @@
+name: Repo Guard
+
+# Runs on every PR (no path filter) so changes outside the app folders can't
+# slip past the per-app pipelines, which only trigger on their own paths.
+on:
+  pull_request:
+    branches: [main, development]
+
+jobs:
+  allowed-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reject files outside allowed locations
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # Paths a PR may add or modify. Anything else (e.g. a new top-level
+          # games/ folder) fails the check.
+          allowed='^(apps/(core-api|game-server|web-client)/|\.github/|AGENTS\.md$|CLAUDE\.md$|\.aider\.conf\.yml$|\.gitignore$|docker-compose\.yml$|package\.json$|package-lock\.json$)'
+
+          changed=$(git diff --name-only --diff-filter=ACMR "origin/${BASE_REF}...HEAD")
+          echo "Changed files:"
+          echo "$changed"
+
+          bad=$(echo "$changed" | grep -vE "$allowed" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Files outside allowed locations (see AGENTS.md > Repository layout):"
+            echo "$bad"
+            exit 1
+          fi
+
+      - name: Reject generated or build output
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          bad=$(git diff --name-only --diff-filter=ACMR "origin/${BASE_REF}...HEAD" \
+            | grep -E '(^|/)(dist|generated|node_modules|\.next)/' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Generated/build output must not be committed:"
+            echo "$bad"
+            exit 1
+          fi
