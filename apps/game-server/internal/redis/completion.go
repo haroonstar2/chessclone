@@ -13,7 +13,7 @@ import (
 const CompletionChannel = "game:completed"
 const PendingCompletions = "games:completed:pending"
 
-// Persist the event before notifying subscribers. The API deletes it only after PostgreSQL commits
+// PublishCompletion persists the game completion event to Redis and publishes it to the completion channel
 func PublishCompletion(ctx context.Context, client *redis.Client, event game.CompletionEvent) error {
 	data, err := json.Marshal(event)
 	if err != nil {
@@ -29,6 +29,7 @@ func PublishCompletion(ctx context.Context, client *redis.Client, event game.Com
 	return err
 }
 
+// CompletionHandler returns a function that handles game completion events by publishing them to Redis with retry logic
 func CompletionHandler(client *redis.Client) func(game.CompletionEvent) {
 	return func(event game.CompletionEvent) {
 		go func() {

@@ -159,3 +159,136 @@ func TestApprovedMoveProtocol(t *testing.T) {
 		t.Fatalf("bad move: %+v", msg)
 	}
 }
+
+func TestGameRoom_Resign(t *testing.T) {
+	room := NewGameRoom("test-resign")
+	white := &MockPlayer{id: "user-white"}
+	black := &MockPlayer{id: "user-black"}
+
+	if err := room.AddPlayer(white); err != nil {
+		t.Fatalf("failed to add white: %v", err)
+	}
+	if err := room.AddPlayer(black); err != nil {
+		t.Fatalf("failed to add black: %v", err)
+	}
+
+	// White resigns -> Black wins (0-1)
+	err := room.HandleResign(white)
+	if err != nil {
+		t.Fatalf("expected no error resigning, got: %v", err)
+	}
+
+	// Verify game ended with correct outcome
+	if !room.ended {
+		t.Fatal("game should be ended after resignation")
+	}
+
+	// Try to resign again -> should fail
+	err = room.HandleResign(black)
+	if err == nil {
+		t.Fatal("expected error resigning after game ended")
+	}
+
+	// Try to move -> should fail
+	err = room.HandleMove(white, "e2", "e4", "")
+	if err == nil {
+		t.Fatal("expected error moving after game ended")
+	}
+}
+
+func TestGameRoom_ResignBlack(t *testing.T) {
+	room := NewGameRoom("test-resign-black")
+	white := &MockPlayer{id: "user-white"}
+	black := &MockPlayer{id: "user-black"}
+	var completion CompletionEvent
+	room.onCompleted = func(event CompletionEvent) {
+		completion = event
+	}
+
+	if err := room.AddPlayer(white); err != nil {
+		t.Fatalf("failed to add white: %v", err)
+	}
+	if err := room.AddPlayer(black); err != nil {
+		t.Fatalf("failed to add black: %v", err)
+	}
+
+	// Black resigns -> White wins (1-0)
+	err := room.HandleResign(black)
+	if err != nil {
+		t.Fatalf("expected no error resigning, got: %v", err)
+	}
+
+	// Verify game ended with correct outcome
+	if !room.ended {
+		t.Fatal("game should be ended after resignation")
+	}
+	if completion.Payload.Winner == nil || *completion.Payload.Winner != "user-white" {
+		t.Fatalf("expected white to win, got %+v", completion.Payload.Winner)
+	}
+	if completion.Payload.Result != "1-0" {
+		t.Fatalf("expected resignation result 1-0, got %q", completion.Payload.Result)
+	}
+
+	// Try to resign again -> should fail
+	err = room.HandleResign(white)
+	if err == nil {
+		t.Fatal("expected error resigning after game ended")
+	}
+
+	// Try to move -> should fail
+	err = room.HandleMove(black, "e7", "e5", "")
+	if err == nil {
+		t.Fatal("expected error moving after game ended")
+	}
+}
+
+func TestGameRoom_ResignNonParticipant(t *testing.T) {
+	room := NewGameRoom("test-resign-non-participant")
+	white := &MockPlayer{id: "user-white"}
+	black := &MockPlayer{id: "user-black"}
+	spectator := &MockPlayer{id: "user-spectator"}
+
+	if err := room.AddPlayer(white); err != nil {
+		t.Fatalf("failed to add white: %v", err)
+	}
+	if err := room.AddPlayer(black); err != nil {
+		t.Fatalf("failed to add black: %v", err)
+	}
+
+	// Spectator tries to resign -> should fail
+	err := room.HandleResign(spectator)
+	if err == nil {
+		t.Fatal("expected error resigning as non-participant")
+	}
+	if err := room.HandleResign(nil); err == nil {
+		t.Fatal("expected error resigning with a nil player")
+	}
+}
+
+func TestGameRoom_ResignRequiresBothPlayers(t *testing.T) {
+	room := NewGameRoom("test-resign-disconnected")
+	white := &MockPlayer{id: "user-white"}
+	black := &MockPlayer{id: "user-black"}
+	_ = room.AddPlayer(white)
+	_ = room.AddPlayer(black)
+	room.RemovePlayer(black)
+
+	if err := room.HandleResign(white); err == nil {
+		t.Fatal("expected resignation to fail while opponent is disconnected")
+	}
+}
+
+func TestGameRoom_ResignUninitializedGame(t *testing.T) {
+	white := &MockPlayer{id: "user-white"}
+	black := &MockPlayer{id: "user-black"}
+	room := &GameRoom{
+		WhitePlayer: white,
+		WhiteID:     "user-white",
+		BlackPlayer: black,
+		BlackID:     "user-black",
+	}
+
+	if err := room.HandleResign(white); err == nil {
+		t.Fatal("expected resignation to fail for an uninitialized game")
+	}
+}

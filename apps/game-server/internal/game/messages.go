@@ -3,6 +3,8 @@ package game
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/corentings/chess/v2"
 )
 
 type MessageType string
@@ -31,6 +33,10 @@ type MovePayload struct {
 	Promotion string `json:"promotion,omitempty"`
 }
 
+type ResignPayload struct {
+	GameID string `json:"gameId"`
+}
+
 type OutgoingMessage struct {
 	Type      MessageType `json:"type"`
 	Payload   any         `json:"payload"`
@@ -43,4 +49,29 @@ func (m OutgoingMessage) MarshalJSON() ([]byte, error) {
 		m.Timestamp = time.Now().UTC()
 	}
 	return json.Marshal(message(m))
+}
+
+func (r *GameRoom) Resign(client Sender) (err error) {
+	r.mu.Lock()
+	var publication *completionPublication
+	defer func() {
+		r.mu.Unlock()
+		if publication != nil {
+			r.publishCompletion(publication)
+		}
+	}()
+
+	if err := r.participantLocked(client); err != nil {
+		return err
+	}
+
+	color := chess.Black
+	if client == r.WhitePlayer {
+		color = chess.White
+	}
+
+	r.Game.Resign(color)
+	publication = r.completeLocked()
+
+	return nil
 }
