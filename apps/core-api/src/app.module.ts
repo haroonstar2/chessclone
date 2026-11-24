@@ -12,6 +12,7 @@ import { UsersModule } from './users/users.module.js';
 import { EmailModule } from './email/email.module.js';
 import { ConfigModule } from '@nestjs/config';
 import { RedisModule } from './redis/redis.module.js';
+import { MatchmakingModule } from './matchmaking/matchmaking.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RedisModule } from './redis/redis.module.js';
     UsersModule,
     EmailModule,
     RedisModule,
+    MatchmakingModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
