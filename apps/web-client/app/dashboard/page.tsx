@@ -1,4 +1,101 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+
+type MatchmakingState = 'idle' | 'searching';
+
+const TIME_CONTROLS = [
+  { label: '1 min', sub: 'Bullet', value: '1m' },
+  { label: '3 min', sub: 'Blitz', value: '3m' },
+  { label: '5 min', sub: 'Blitz', value: '5m' },
+  { label: '10 min', sub: 'Rapid', value: '10m' },
+  { label: 'Custom', sub: 'Challenge', value: 'custom' },
+];
+
 export default function DashboardPage() {
+  const router = useRouter();
+  const [state, setState] = useState<MatchmakingState>('idle');
+  const [activeTimeControl, setActiveTimeControl] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch('/matchmaking/status', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'MATCHED' && data.gameId) {
+          stopPolling();
+          setState('idle');
+          router.push(`/game/${data.gameId}`);
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 2000);
+  }, [router, stopPolling]);
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
+
+  const handleJoin = async (timeControl: string) => {
+    try {
+      const res = await fetch('/matchmaking/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ timeControl }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data.status === 'MATCHED' && data.gameId) {
+        router.push(`/game/${data.gameId}`);
+      } else {
+        setActiveTimeControl(timeControl);
+        setState('searching');
+        startPolling();
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCancel = async () => {
+    stopPolling();
+    setState('idle');
+    if (activeTimeControl) {
+      try {
+        await fetch(
+          `/matchmaking/leave?timeControl=${encodeURIComponent(activeTimeControl)}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`,
+            },
+          },
+        );
+      } catch {
+        // ignore
+      }
+    }
+    setActiveTimeControl(null);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center">
       <header className="w-full bg-white shadow-sm border-b p-4 flex justify-between items-center max-w-6xl mx-auto">
@@ -15,28 +112,36 @@ export default function DashboardPage() {
         <div className="flex-1 flex flex-col gap-8">
           <section>
             <h2 className="text-2xl font-bold mb-4">Quick Play</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <button className="bg-white border rounded-lg p-4 text-center hover:bg-gray-50 shadow-sm transition-colors">
-                <div className="font-semibold text-lg">1 min</div>
-                <div className="text-sm text-gray-500">Bullet</div>
-              </button>
-              <button className="bg-white border rounded-lg p-4 text-center hover:bg-gray-50 shadow-sm transition-colors">
-                <div className="font-semibold text-lg">3 min</div>
-                <div className="text-sm text-gray-500">Blitz</div>
-              </button>
-              <button className="bg-white border rounded-lg p-4 text-center hover:bg-gray-50 shadow-sm transition-colors">
-                <div className="font-semibold text-lg">5 min</div>
-                <div className="text-sm text-gray-500">Blitz</div>
-              </button>
-              <button className="bg-white border rounded-lg p-4 text-center hover:bg-gray-50 shadow-sm transition-colors">
-                <div className="font-semibold text-lg">10 min</div>
-                <div className="text-sm text-gray-500">Rapid</div>
-              </button>
-              <button className="bg-white border rounded-lg p-4 text-center hover:bg-gray-50 shadow-sm transition-colors col-span-2 sm:col-span-1">
-                <div className="font-semibold text-lg">Custom</div>
-                <div className="text-sm text-gray-500">Challenge</div>
-              </button>
-            </div>
+
+            {state === 'searching' ? (
+              <div className="bg-white border rounded-lg p-6 shadow-sm flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-gray-700 font-medium">
+                    Searching for opponent...
+                  </span>
+                </div>
+                <button
+                  onClick={handleCancel}
+                  className="bg-red-50 text-red-600 border border-red-200 rounded-lg px-4 py-2 text-sm font-medium hover:bg-red-100 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {TIME_CONTROLS.map((tc) => (
+                  <button
+                    key={tc.value}
+                    onClick={() => handleJoin(tc.value)}
+                    className="bg-white border rounded-lg p-4 text-center hover:bg-gray-50 shadow-sm transition-colors"
+                  >
+                    <div className="font-semibold text-lg">{tc.label}</div>
+                    <div className="text-sm text-gray-500">{tc.sub}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
 
           <section>
